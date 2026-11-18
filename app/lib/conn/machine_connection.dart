@@ -241,6 +241,38 @@ class Key {
   String toString() => 'Key($name)';
 }
 
+class TermSize {
+  const TermSize(this.cols, this.rows);
+  final int cols;
+  final int rows;
+
+  @override
+  bool operator ==(Object other) => other is TermSize && other.cols == cols && other.rows == rows;
+
+  @override
+  int get hashCode => Object.hash(cols, rows);
+
+  @override
+  String toString() => '${cols}x$rows';
+}
+
+class TermView {
+  const TermView({
+    required this.initial,
+    required this.bytes,
+    required this.sizes,
+    required this.close,
+  });
+
+  /// The size when the view opened; the first paint in [bytes] is for it.
+  final TermSize initial;
+  final Stream<List<int>> bytes;
+
+  /// A new size arrives before the bytes painted for it.
+  final Stream<TermSize> sizes;
+  final Future<void> Function() close;
+}
+
 sealed class Reply {
   const Reply();
 }
@@ -308,8 +340,14 @@ abstract class MachineConnection {
   Future<Reply> run(String folder, String command);
   Future<Reply> confirm(String token);
 
-  /// Raw VT bytes (colour included). Cancelling the subscription detaches.
-  Stream<List<int>> view(String terminal, {int history = 5000});
+  /// The terminal's size in cells (what the program draws for).
+  Future<TermSize> size(String terminal);
+
+  /// Watch a terminal: raw VT bytes (colour included) and its size changes.
+  /// Pausing the `bytes` subscription pauses the machine (flow control);
+  /// cancelling it, or [TermView.close], detaches. There is no `resize`: an
+  /// observer never resizes a terminal (core: observe = watch only).
+  Future<TermView> view(String terminal, {int history = 5000});
   Stream<Notice> notices();
   Future<void> close();
 }

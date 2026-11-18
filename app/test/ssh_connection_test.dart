@@ -263,20 +263,57 @@ void main() {
       await c.close();
     });
 
-    test('view streams raw bytes and detaching sends CLOSE', () async {
+    test('view streams raw bytes and sizes; closing detaches', () async {
       final c = await rig.up();
-      final got = <int>[];
-      final sub = c.view('t1', history: 100).listen(got.addAll);
-      await waitFor(() => rig.core.calls.any((x) => x.startsWith('terminal.attach')));
+      final v = await c.view('t1', history: 100);
       expect(rig.core.calls.last,
-          'terminal.attach ${jsonEncode({'terminal': 't1', 'cols': 80, 'rows': 24, 'history': 100, 'observe': true})}');
-      await settle();
+          'terminal.attach ${jsonEncode({'terminal': 't1', 'cols': 80, 'rows': 24, 'history': 100, 'observe': true, 'resize_notifications': true})}');
+      expect(v.initial, const TermSize(100, 30));
+      final got = <int>[];
+      final sizes = <TermSize>[];
+      v.bytes.listen(got.addAll);
+      v.sizes.listen(sizes.add);
+      rig.core.process!.pushResize(1, 90, 20);
       rig.core.process!.pushData(1, utf8.encode('\x1b[32mgreen\x1b[0m'));
-      await waitFor(() => got.isNotEmpty);
+      await waitFor(() => got.isNotEmpty && sizes.isNotEmpty);
       expect(utf8.decode(got), '\x1b[32mgreen\x1b[0m');
-      await sub.cancel();
+      expect(sizes.single, const TermSize(90, 20));
+      await v.close();
       await waitFor(() => rig.core.closedChannels.contains(1));
       await c.close();
+    });
+
+    test('size reads cols and rows from terminal.get', () async {
+      final c = await rig.up();
+      expect(await c.size('t2'), const TermSize(100, 30));
+      await c.close();
+    });
+
+    test('a flood with a paused UI stops being acknowledged', () async {
+      final c = await rig.up();
+      final v = await c.view('t1');
+      final sub = v.bytes.listen((_) {});
+      sub.pause();
+      final p = rig.core.process!;
+      for (var i = 0; i < 70; i++) {
+        p.pushData(1, List.filled(1000, 65));
+      }
+      await settle();
+      await settle();
+      expect(p.creditsReceived, 0);
+      sub.resume();
+      await waitFor(() => p.creditsReceived >= 65536);
+      await c.close();
+    });
+
+    test('the Windows command tries %LOCALAPPDATA% first, quoted, then the home path', () {
+      final cmd = windowsCommand('connect');
+      const local = r'"%LOCALAPPDATA%\Programs\h0x-core\h0x-core.exe"';
+      const home = r'.\AppData\Local\Programs\h0x-core\h0x-core.exe';
+      expect(cmd.indexOf(local), greaterThan(0));
+      expect(cmd.indexOf(local), lessThan(cmd.indexOf(home)));
+      expect(cmd, startsWith('cmd /d /c "if exist $local ($local connect) else if exist $home'));
+      expect(cmd, endsWith('exit /b 127)"'));
     });
 
     test('notices: blocked, done, error and finished only, with agent and folder', () async {

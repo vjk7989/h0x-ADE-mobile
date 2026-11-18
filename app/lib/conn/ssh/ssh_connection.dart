@@ -22,11 +22,15 @@ String unixCommand(String args) =>
 const _windowsCore = r'.\AppData\Local\Programs\h0x-core\h0x-core.exe';
 
 /// The Windows remote command (OpenSSH's default shell may be cmd or
-/// PowerShell; both hand this to cmd.exe unchanged). The path is relative to
-/// the home folder, where SSH logins start.
-String windowsCommand(String args) =>
-    'cmd /d /c "if exist $_windowsCore ($_windowsCore $args) '
-    'else (echo $coreNotHere 1>&2 & exit /b 127)"';
+/// PowerShell; both hand this to cmd.exe). `%LOCALAPPDATA%` first (cmd expands
+/// it, quoted for spaces), then the path relative to the home folder, where
+/// SSH logins start.
+String windowsCommand(String args) {
+  const local = r'"%LOCALAPPDATA%\Programs\h0x-core\h0x-core.exe"';
+  return 'cmd /d /c "if exist $local ($local $args) '
+      'else if exist $_windowsCore ($_windowsCore $args) '
+      'else (echo $coreNotHere 1>&2 & exit /b 127)"';
+}
 
 class SshTarget {
   const SshTarget({
@@ -421,41 +425,24 @@ class SshMachineConnection implements MachineConnection {
   // ---- streams ----
 
   @override
-  Stream<List<int>> view(String terminal, {int history = 5000}) {
-    late StreamController<List<int>> c;
-    AttachedStream? att;
-    StreamSubscription<List<int>>? sub;
-    var cancelled = false;
-    c = StreamController<List<int>>(
-      onListen: () async {
-        try {
-          // Watch only: core sends the terminal's own size, we never resize it.
-          final a = await (await _ready()).attach(
-            terminal: terminal,
-            cols: 80,
-            rows: 24,
-            history: history,
-          );
-          if (cancelled) {
-            await a.close();
-            return;
-          }
-          att = a;
-          sub = a.data.listen(c.add, onError: c.addError, onDone: c.close);
-        } catch (e) {
-          if (!c.isClosed) {
-            c.addError(e);
-            await c.close();
-          }
-        }
-      },
-      onCancel: () async {
-        cancelled = true;
-        await sub?.cancel();
-        await att?.close();
-      },
+  Future<TermSize> size(String terminal) async {
+    final t = await (await _ready()).call('terminal.get', {'terminal': terminal}) as Map;
+    final cols = t['cols'], rows = t['rows'];
+    if (cols is! int || rows is! int) throw StateError('core gave no size for $terminal');
+    return TermSize(cols, rows);
+  }
+
+  /// Watch only: core sends the terminal's own size (we pass 80x24 as the
+  /// viewer size, which an observer never applies) and RESIZE frames.
+  @override
+  Future<TermView> view(String terminal, {int history = 5000}) async {
+    final a = await (await _ready()).attach(
+      terminal: terminal,
+      cols: 80,
+      rows: 24,
+      history: history,
     );
-    return c.stream;
+    return TermView(initial: a.initial, bytes: a.data, sizes: a.sizes, close: a.close);
   }
 
   @override

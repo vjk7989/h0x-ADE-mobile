@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import '../machine_connection.dart' show TermSize;
 import 'frames.dart';
 
 /// A duplex byte pipe to `h0x-core connect` (an SSH exec channel in
@@ -42,9 +44,18 @@ class RpcNotification {
 
 /// A raw attach stream: first paint, then live terminal bytes.
 class AttachedStream {
-  AttachedStream._(this.terminal, this.data, this._close);
+  AttachedStream._(this.terminal, this.initial, this.data, this.sizes, this._close);
   final Map<String, dynamic> terminal;
+
+  /// The terminal's size when attached (cols/rows of [terminal], else 80x24).
+  final TermSize initial;
+
+  /// Pausing the listener pauses core: CREDIT is acknowledged only for chunks
+  /// the listener has received. Cancelling detaches.
   final Stream<Uint8List> data;
+
+  /// RESIZE frames (observers get them when asked with `resize_notifications`).
+  final Stream<TermSize> sizes;
   final Future<void> Function() _close;
 
   /// Detach (sends CLOSE on the channel).
@@ -64,11 +75,41 @@ class EventSubscription {
 }
 
 class _Chan {
-  final raw = StreamController<Uint8List>();
+  _Chan(this.channel, this.onCancel, this.ack) {
+    raw = StreamController<Uint8List>(
+      sync: true,
+      onListen: pump,
+      onResume: pump,
+      onCancel: () => onCancel(channel),
+    );
+  }
+
+  final int channel;
+  final void Function(int channel) onCancel;
+  final void Function(_Chan chan, int n) ack;
+  late final StreamController<Uint8List> raw;
+  final sizes = StreamController<TermSize>();
   final events = StreamController<RpcNotification>();
   final lines = BytesBuilder(copy: false);
+  final queue = Queue<Uint8List>();
   int unacked = 0;
   bool isEvents = false;
+  bool ending = false;
+
+  /// Hands queued chunks to a listener that is not paused; each one handed
+  /// over is acknowledged to core. A paused (or absent) listener leaves them
+  /// queued, so core stops at its window instead of memory growing.
+  void pump() {
+    while (queue.isNotEmpty && raw.hasListener && !raw.isPaused) {
+      final c = queue.removeFirst();
+      raw.add(c);
+      ack(this, c.length);
+    }
+    if (ending && queue.isEmpty) {
+      unawaited(raw.close());
+      unawaited(sizes.close());
+    }
+  }
 }
 
 /// Core's JSON-RPC over a framed byte stream. Transport-agnostic.
@@ -139,6 +180,7 @@ class CoreRpc {
     required int rows,
     int history = 0,
     bool observe = true,
+    bool resizeNotifications = true,
   }) async {
     final r = await call('terminal.attach', {
       'terminal': terminal,
@@ -146,12 +188,17 @@ class CoreRpc {
       'rows': rows,
       'history': history,
       'observe': observe,
+      'resize_notifications': resizeNotifications,
     }) as Map<String, dynamic>;
     final channel = r['channel'] as int;
     final chan = _chans[channel]!;
+    final t = (r['terminal'] as Map).cast<String, dynamic>();
+    final cols = t['cols'], rows = t['rows'];
     return AttachedStream._(
-      (r['terminal'] as Map).cast<String, dynamic>(),
+      t,
+      TermSize(cols is int && cols > 0 ? cols : 80, rows is int && rows > 0 ? rows : 24),
       chan.raw.stream,
+      chan.sizes.stream,
       () => _closeChannel(channel, notifyCore: true),
     );
   }
@@ -256,11 +303,17 @@ class CoreRpc {
     switch (f.kind) {
       case kindData:
         if (chan == null) return;
-        _ack(f.channel, chan, f.payload.length);
         if (chan.isEvents) {
+          _ack(chan, f.payload.length);
           _onEventBytes(chan, f.payload);
         } else {
-          chan.raw.add(f.payload);
+          chan.queue.add(f.payload);
+          chan.pump();
+        }
+      case kindResize:
+        if (chan != null && f.payload.length == 4) {
+          final d = ByteData.sublistView(f.payload);
+          chan.sizes.add(TermSize(d.getUint16(0, Endian.little), d.getUint16(2, Endian.little)));
         }
       case kindClose:
         _closeChannel(f.channel, notifyCore: false);
@@ -269,12 +322,12 @@ class CoreRpc {
     }
   }
 
-  void _ack(int channel, _Chan chan, int n) {
+  void _ack(_Chan chan, int n) {
     chan.unacked += n;
     if (chan.unacked >= _creditEvery) {
       final b = ByteData(4)..setUint32(0, chan.unacked, Endian.little);
       chan.unacked = 0;
-      _send(channel, kindCredit, b.buffer.asUint8List());
+      _send(chan.channel, kindCredit, b.buffer.asUint8List());
     }
   }
 
@@ -321,7 +374,11 @@ class CoreRpc {
       // Register a stream channel before anyone can await the reply: data frames
       // may already be behind it in the same read.
       if (result is Map && result['channel'] is int) {
-        _chans.putIfAbsent(result['channel'] as int, _Chan.new);
+        final ch = result['channel'] as int;
+        _chans.putIfAbsent(
+          ch,
+          () => _Chan(ch, (c) => unawaited(_closeChannel(c, notifyCore: true)), _ack),
+        );
       }
       c.complete(result);
     } else if (m['method'] is String) {
@@ -352,9 +409,13 @@ class CoreRpc {
   Future<void> _closeChannel(int channel, {required bool notifyCore}) async {
     final chan = _chans.remove(channel);
     if (chan == null) return;
-    if (notifyCore) _send(channel, kindClose, const []);
+    if (notifyCore) {
+      _send(channel, kindClose, const []);
+      chan.queue.clear();
+    }
     // not awaited: close() of a stream nobody listens to never completes
-    unawaited(chan.raw.close());
+    chan.ending = true;
+    chan.pump(); // a core-side close still delivers what is queued, then ends
     unawaited(chan.events.close());
   }
 
@@ -377,7 +438,9 @@ class CoreRpc {
     }
     _calls.clear();
     for (final chan in _chans.values) {
-      unawaited(chan.raw.close());
+      chan.queue.clear();
+      chan.ending = true;
+      chan.pump();
       unawaited(chan.events.close());
     }
     _chans.clear();

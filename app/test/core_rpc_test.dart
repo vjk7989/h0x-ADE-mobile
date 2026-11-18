@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hyperox/conn/machine_connection.dart' show TermSize;
 import 'package:hyperox/conn/ssh/core_rpc.dart';
 import 'package:hyperox/conn/ssh/frames.dart';
 
@@ -246,7 +247,14 @@ void main() {
       final req = link.sentCalls.single;
       expect(req['method'], 'terminal.attach');
       expect(req['params'],
-          {'terminal': 't1', 'cols': 80, 'rows': 24, 'history': 100, 'observe': true});
+          {
+            'terminal': 't1',
+            'cols': 80,
+            'rows': 24,
+            'history': 100,
+            'observe': true,
+            'resize_notifications': true,
+          });
       expect(att.terminal['address'], 't1');
       final first = await att.data.first;
       expect(utf8.decode(first), '\x1b[31mred\x1b[0m');
@@ -262,7 +270,8 @@ void main() {
         'id': 2,
         'result': {'channel': 9, 'terminal': {}}
       }));
-      await f;
+      final att = await f;
+      att.data.listen((_) {});
       link.push(encodeFrame(9, kindData, Uint8List(60)));
       await settle();
       expect(link.sentFrames.where((f) => f.kind == kindCredit), isEmpty,
@@ -273,6 +282,104 @@ void main() {
       expect(credits, hasLength(1));
       expect(credits.single.channel, 9);
       expect(ByteData.sublistView(credits.single.payload).getUint32(0, Endian.little), 120);
+    });
+
+    test('backpressure: a paused listener holds back credit until it resumes', () async {
+      link = MemLink();
+      rpc = CoreRpc(link, creditEvery: 100);
+      await ready();
+      final f = rpc.attach(terminal: 't1', cols: 80, rows: 24);
+      link.push(jsonFrame(0, {
+        'jsonrpc': '2.0',
+        'id': 2,
+        'result': {'channel': 9, 'terminal': {}}
+      }));
+      final att = await f;
+      final got = <int>[];
+      final sub = att.data.listen((c) => got.addAll(c));
+      sub.pause();
+      for (var i = 0; i < 5; i++) {
+        link.push(encodeFrame(9, kindData, Uint8List(60)));
+      }
+      await settle();
+      expect(got, isEmpty);
+      expect(link.sentFrames.where((f) => f.kind == kindCredit), isEmpty,
+          reason: 'nothing consumed, so core stays stopped at its window');
+      sub.resume();
+      await settle();
+      expect(got, hasLength(300));
+      final credited = link.sentFrames
+          .where((f) => f.kind == kindCredit)
+          .map((f) => ByteData.sublistView(f.payload).getUint32(0, Endian.little))
+          .fold<int>(0, (a, b) => a + b);
+      expect(credited, 300, reason: 'every chunk handed over is acknowledged');
+    });
+
+    test('no listener at all: nothing is acknowledged, data waits', () async {
+      link = MemLink();
+      rpc = CoreRpc(link, creditEvery: 10);
+      await ready();
+      final f = rpc.attach(terminal: 't1', cols: 80, rows: 24);
+      link.push(jsonFrame(0, {
+        'jsonrpc': '2.0',
+        'id': 2,
+        'result': {'channel': 9, 'terminal': {}}
+      }));
+      final att = await f;
+      link.push(encodeFrame(9, kindData, Uint8List(50)));
+      await settle();
+      expect(link.sentFrames.where((f) => f.kind == kindCredit), isEmpty);
+      final first = await att.data.first;
+      expect(first, hasLength(50));
+    });
+
+    test('RESIZE frames become sizes; the attach size comes from the terminal', () async {
+      await ready();
+      final f = rpc.attach(terminal: 't1', cols: 80, rows: 24);
+      link.push(jsonFrame(0, {
+        'jsonrpc': '2.0',
+        'id': 2,
+        'result': {
+          'channel': 4,
+          'terminal': {'cols': 120, 'rows': 40}
+        }
+      }));
+      final att = await f;
+      expect(att.initial, const TermSize(120, 40));
+      final sizes = att.sizes.take(2).toList();
+      final d = ByteData(4)
+        ..setUint16(0, 132, Endian.little)
+        ..setUint16(2, 43, Endian.little);
+      link.push(encodeFrame(4, kindResize, d.buffer.asUint8List()));
+      link.push(encodeFrame(4, kindResize, [1, 2, 3])); // malformed: ignored
+      link.push(encodeFrame(4, kindResize, d.buffer.asUint8List()));
+      expect(await sizes, [const TermSize(132, 43), const TermSize(132, 43)]);
+    });
+
+    test('a terminal without a size falls back to 80x24', () async {
+      await ready();
+      final f = rpc.attach(terminal: 't1', cols: 80, rows: 24);
+      link.push(jsonFrame(0, {
+        'jsonrpc': '2.0',
+        'id': 2,
+        'result': {'channel': 4, 'terminal': {}}
+      }));
+      expect((await f).initial, const TermSize(80, 24));
+    });
+
+    test('cancelling the data subscription detaches (CLOSE sent)', () async {
+      await ready();
+      final f = rpc.attach(terminal: 't1', cols: 80, rows: 24);
+      link.push(jsonFrame(0, {
+        'jsonrpc': '2.0',
+        'id': 2,
+        'result': {'channel': 4, 'terminal': {}}
+      }));
+      final att = await f;
+      final sub = att.data.listen((_) {});
+      await sub.cancel();
+      await settle();
+      expect(link.sentFrames.where((f) => f.kind == kindClose).single.channel, 4);
     });
 
     test('detaching sends CLOSE on the channel; core CLOSE ends the stream', () async {

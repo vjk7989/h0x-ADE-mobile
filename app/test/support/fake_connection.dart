@@ -134,13 +134,33 @@ class FakeConnection implements MachineConnection {
   }
 
   @override
-  Stream<List<int>> view(String terminal, {int history = 5000}) {
-    late StreamController<List<int>> c;
-    c = StreamController<List<int>>(
-      onCancel: () => _views.remove(terminal),
+  Future<TermSize> size(String terminal) async {
+    if (!live.containsKey(terminal)) throw StateError('no such terminal: $terminal');
+    return const TermSize(80, 24);
+  }
+
+  final _sizes = <String, StreamController<TermSize>>{};
+
+  void emitSize(String terminal, TermSize s) => _sizes[terminal]?.add(s);
+
+  @override
+  Future<TermView> view(String terminal, {int history = 5000}) async {
+    if (!live.containsKey(terminal)) throw StateError('no such terminal: $terminal');
+    final bytes = StreamController<List<int>>(onCancel: () => _views.remove(terminal));
+    final sizes = StreamController<TermSize>();
+    _views[terminal] = bytes;
+    _sizes[terminal] = sizes;
+    return TermView(
+      initial: const TermSize(80, 24),
+      bytes: bytes.stream,
+      sizes: sizes.stream,
+      close: () async {
+        _views.remove(terminal);
+        _sizes.remove(terminal);
+        await bytes.close();
+        await sizes.close();
+      },
     );
-    _views[terminal] = c;
-    return c.stream;
   }
 
   @override

@@ -48,6 +48,20 @@ void connectionContract(String name, Future<MachineConnection> Function() make) 
       expect(await c.confirm('bogus'), isA<ReplyFailed>());
     });
 
+    test('size is positive and view opens with an initial size', () async {
+      final size = await c.size('t1');
+      expect(size.cols, greaterThan(0));
+      expect(size.rows, greaterThan(0));
+      final v = await c.view('t1');
+      expect(v.initial.cols, greaterThan(0));
+      await v.close();
+    });
+
+    test('size and view of an unknown terminal fail', () async {
+      await expectLater(c.size('nope'), throwsA(anything));
+      await expectLater(c.view('nope'), throwsA(anything));
+    });
+
     test('state emits ready or has been ready', () async {
       // Implementations are ready when make() returns.
       expect(c.machine.online, isTrue);

@@ -20,6 +20,8 @@ Map<String, dynamic> terminal(String address, String name, String state,
     'address': address,
     'name': name,
     'cwd': cwd,
+    'cols': 100,
+    'rows': 30,
     'argv': ['claude'],
     'state': live ? 'live' : 'finished',
     'status': {'state': state, 'app': app, if (kind != null) 'kind': kind, 'msg': 'msg $address'},
@@ -96,6 +98,9 @@ class FakeCoreProcess implements RemoteProcess {
   var _plain = true;
   int? subscribedChannel;
 
+  /// Bytes of CREDIT the client has acknowledged, over all channels.
+  var creditsReceived = 0;
+
   @override
   Stream<List<int>> get input => _out.stream;
 
@@ -133,6 +138,8 @@ class FakeCoreProcess implements RemoteProcess {
     for (final f in _dec.add(bytes)) {
       if (f.channel == 0 && f.kind == kindData) {
         _onRequest(jsonDecode(utf8.decode(f.payload)) as Map<String, dynamic>);
+      } else if (f.kind == kindCredit) {
+        creditsReceived += ByteData.sublistView(f.payload).getUint32(0, Endian.little);
       } else if (f.kind == kindClose) {
         core.closedChannels.add(f.channel);
       }
@@ -164,6 +171,14 @@ class FakeCoreProcess implements RemoteProcess {
 
   /// Terminal bytes on a stream channel.
   void pushData(int channel, List<int> data) => _out.add(encodeFrame(channel, kindData, data));
+
+  /// A RESIZE frame (u16 LE cols, u16 LE rows) on a stream channel.
+  void pushResize(int channel, int cols, int rows) {
+    final d = ByteData(4)
+      ..setUint16(0, cols, Endian.little)
+      ..setUint16(2, rows, Endian.little);
+    _out.add(encodeFrame(channel, kindResize, d.buffer.asUint8List()));
+  }
 
   void pushEvent(Map<String, dynamic> params, {String method = 'event'}) {
     _out.add(encodeFrame(subscribedChannel!, kindData,
