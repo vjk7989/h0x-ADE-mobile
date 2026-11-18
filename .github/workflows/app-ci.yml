@@ -32,8 +32,10 @@ jobs:
       - name: Analyze
         run: flutter analyze --no-fatal-infos
       - name: Test
+        if: ${{ !cancelled() }}
         run: flutter test
       - name: Build debug APK (arm64)
+        if: ${{ !cancelled() }}
         run: flutter build apk --debug --target-platform android-arm64
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

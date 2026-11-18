@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'router.dart';
+import 'screens/unlock_screen.dart';
 import 'theme/theme_controller.dart';
 import 'theme/themes.dart';
 
@@ -28,6 +29,7 @@ class HyperOxApp extends ConsumerWidget {
       theme: themeData(themeById(choice.light)),
       darkTheme: themeData(themeById(choice.dark)),
       themeMode: choice.themeMode,
+      builder: (context, child) => AppLockScope(child: child!),
       routerConfig: ref.watch(routerProvider),
     );
   }
