@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hyperox/main.dart';
 import 'package:hyperox/router.dart';
 import 'package:hyperox/session_state.dart';
+import 'package:hyperox/theme/theme_controller.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 String? go(String location, {bool signedIn = false, int ssh = 0}) =>
     redirectFor(location: location, signedIn: signedIn, sshMachines: ssh);
@@ -19,6 +21,7 @@ void main() {
     test('sign-in and Add machine stay open without an account', () {
       expect(go('/sign-in'), isNull);
       expect(go('/machines/add'), isNull);
+      expect(go('/settings/theme'), isNull);
     });
 
     test('SSH machines only go to the Inbox', () {
@@ -40,8 +43,11 @@ void main() {
     required bool signedIn,
     required int ssh,
   }) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
     final container = ProviderContainer(
       overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
         signedInProvider.overrideWithValue(signedIn),
         sshMachineCountProvider.overrideWithValue(ssh),
       ],

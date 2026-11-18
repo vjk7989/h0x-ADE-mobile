@@ -8,14 +8,15 @@ import 'screens/inbox_screen.dart';
 import 'screens/machines_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/sign_in_screen.dart';
+import 'screens/theme_picker_screen.dart';
 import 'screens/spaces_screen.dart';
 import 'session_state.dart';
 
 /// Where a user goes, given who they are. Returns null to stay.
 ///
 /// - not signed in and no SSH machine: the sign-in screen (the only places
-///   open to them are sign-in and Add machine, the "continue without an
-///   account" path);
+///   open to them are sign-in, Add machine (the "continue without an
+///   account" path) and the theme picker);
 /// - an account or at least one SSH machine: the Inbox.
 String? redirectFor({
   required String location,
@@ -25,7 +26,7 @@ String? redirectFor({
   final known = signedIn || sshMachines > 0;
   if (location == '/') return known ? '/inbox' : '/sign-in';
   if (known) return location == '/sign-in' ? '/inbox' : null;
-  const open = {'/sign-in', '/machines/add'};
+  const open = {'/sign-in', '/machines/add', '/settings/theme'};
   return open.contains(location) ? null : '/sign-in';
 }
 
@@ -58,7 +59,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, _) => const AgentScreen(),
       ),
       GoRoute(path: '/spaces', builder: (_, _) => const SpacesScreen()),
-      GoRoute(path: '/settings', builder: (_, _) => const SettingsScreen()),
+      GoRoute(
+        path: '/settings',
+        builder: (_, _) => const SettingsScreen(),
+        routes: [
+          GoRoute(path: 'theme', builder: (_, _) => const ThemePickerScreen()),
+        ],
+      ),
     ],
   );
 });
