@@ -20,6 +20,7 @@ dependencies:
   local_auth: ^3.0.2
   xterm: ^4.0.0
   dartssh2: 4.1.0
+  pinenacl: ^0.6.0
   pointycastle: ^4.0.0
   shared_preferences: ^2.5.6
   share_plus: ^13.3.1

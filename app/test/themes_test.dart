@@ -59,7 +59,9 @@ void main() {
         'neo-brutalism',
         'soft-pop',
         'win98',
-        ..._tokenThemes,
+        'sodium',
+        'voltage',
+        'phosphor',
       ]),
     );
     expect(kThemeSpecs.length, 15);

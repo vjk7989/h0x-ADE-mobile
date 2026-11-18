@@ -471,7 +471,7 @@ final List<ThemeSpec> kThemeSpecs = [
       'screen': '#030a05',
       'card': '#08170e',
       'outline': '#4a6b52',
-      'well': '#020703',
+      'well': '#020603',
       'ok': '#39d353',
       'selected_mobile': '#39d35326',
       'hairline': '#b6f5c112',

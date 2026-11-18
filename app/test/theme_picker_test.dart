@@ -2,7 +2,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hyperox/screens/theme_picker_screen.dart';
 import 'package:hyperox/theme/theme_controller.dart';
-import 'package:hyperox/theme/themes.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -88,6 +87,7 @@ void main() {
     testWidgets('lists every theme and ticks the one on screen', (tester) async {
       await pumpGolden(tester, const ThemePickerScreen());
       final handle = tester.ensureSemantics();
+      await tester.pump();
       expect(
         find.bySemanticsLabel('Paper, light theme, selected'),
         findsOneWidget,

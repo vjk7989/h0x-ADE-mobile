@@ -147,7 +147,7 @@ def build(name, p, overrides):
         card = mix(c("background"), c("raised"), 0.6)
         scrim = "#00000099"
         hairline = alpha(c("foreground"), 0.07)
-        well = hx(mix(c("background"), 0, 0.35))
+        well = hx(sum(round(((c("background") >> sh) & 255) * 0.65) << sh for sh in (16, 8, 0)))  # python round(), as tokens.md
         sel_a = 0.15
     # outline: least foreground (1% steps) mixed into card with >= 3:1 on card and screen
     outline = c("foreground")
