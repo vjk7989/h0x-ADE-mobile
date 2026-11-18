@@ -1,0 +1,26 @@
+# Flutter / Dart
+app/build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# Android signing
+key.properties
+*.jks
+*.keystore
+local.properties
+
+# Node (backend/firebase)
+node_modules/
+
+# Go relay binary
+/backend/relay/relay
+/backend/relay/relay.exe
+
+# Secrets
+*.pem
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
