@@ -93,6 +93,15 @@ void main() {
             )
             .scale;
         expect(scale, 0.97, reason: '$label is held down');
+        final layer = t
+            .widget<AnimatedContainer>(
+              find.descendant(
+                of: find.byKey(ValueKey('$label-pressed')),
+                matching: find.byType(AnimatedContainer),
+              ),
+            )
+            .decoration as BoxDecoration;
+        expect(layer.color!.a, greaterThan(0.05), reason: '$label has its state layer');
       }
       await expectGolden(find.byType(MaterialApp), 'press_states_$tag');
       for (final g in gestures) {
