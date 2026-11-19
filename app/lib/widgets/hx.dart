@@ -278,11 +278,15 @@ class HxBanner extends StatelessWidget {
     required this.title,
     required this.message,
     this.kind = HxBannerKind.error,
+    this.trailing,
   });
 
   final String title;
   final String message;
   final HxBannerKind kind;
+
+  /// Something at the end of the strip (a countdown ring, for example).
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -339,6 +343,7 @@ class HxBanner extends StatelessWidget {
                 ],
               ),
             ),
+            if (trailing != null) ...[const SizedBox(width: 8), trailing!],
           ],
         ),
       ),

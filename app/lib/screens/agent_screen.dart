@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +13,7 @@ import '../conn/machine_connection.dart';
 import '../state/agent_session.dart';
 import '../state/connections.dart';
 import '../state/key_input.dart';
+import '../theme/motion.dart';
 import '../theme/terminal_theme.dart';
 import '../theme/theme_controller.dart';
 import '../theme/themes.dart';
@@ -239,7 +241,10 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
         ],
       ),
     );
-    if (ok == true) await _handle(a.interrupt());
+    if (ok == true) {
+      HapticFeedback.heavyImpact();
+      await _handle(a.interrupt());
+    }
   }
 
   String _selectedText() {
@@ -286,6 +291,8 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
                 ShareParams(text: a.terminal.buffer.getText()),
               ),
             ),
+            // History replays under a thin bar, which fades out when done.
+            _ReplayBar(progress: a.replayProgress, active: a.replaying),
             if (phase == AgentPhase.reconnecting)
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
@@ -293,6 +300,9 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
                   kind: HxBannerKind.info,
                   title: 'Reconnecting to ${a.conn.machine.name}',
                   message: a.error ?? 'Output so far stays here.',
+                  trailing: a.retryIn == null
+                      ? null
+                      : _RetryRing(total: a.retryIn!, epoch: a.retryEpoch),
                 ),
               ),
             if (_locked != null)
@@ -308,8 +318,14 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
             if (blocked && phase == AgentPhase.ready)
               _PromptCard(
                 session: session,
-                onDeny: () => _handle(a.deny()),
-                onApprove: () => _handle(a.approve()),
+                onDeny: () {
+                  HapticFeedback.lightImpact();
+                  _handle(a.deny());
+                },
+                onApprove: () {
+                  HapticFeedback.mediumImpact();
+                  _handle(a.approve());
+                },
               ),
             if (phase == AgentPhase.finished)
               _ResultCard(
@@ -1117,4 +1133,116 @@ class _SelectionToolbar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// A 2 dp determinate bar under the header while the history replays; it
+/// fades out when the replay is done.
+class _ReplayBar extends StatelessWidget {
+  const _ReplayBar({required this.progress, required this.active});
+
+  final double progress;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.hx.colors;
+    return AnimatedOpacity(
+      opacity: active ? 1 : 0,
+      duration: HxMotion.d(context, HxMotion.stateChange, fade: true),
+      child: SizedBox(
+        height: 2,
+        child: LinearProgressIndicator(
+          value: progress,
+          minHeight: 2,
+          backgroundColor: Colors.transparent,
+          color: c.accent,
+        ),
+      ),
+    );
+  }
+}
+
+/// A ring around the retry icon that runs down over the wait before the next
+/// try. With reduced motion the ring stays full.
+class _RetryRing extends StatefulWidget {
+  const _RetryRing({required this.total, required this.epoch});
+
+  final Duration total;
+  final int epoch;
+
+  @override
+  State<_RetryRing> createState() => _RetryRingState();
+}
+
+class _RetryRingState extends State<_RetryRing> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this);
+
+  void _start() {
+    if (HxMotion.reduced(context)) return;
+    _c.duration = widget.total;
+    _c.forward(from: 0);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_c.isAnimating && _c.value == 0) _start();
+  }
+
+  @override
+  void didUpdateWidget(_RetryRing old) {
+    super.didUpdateWidget(old);
+    if (old.epoch != widget.epoch) _start();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.hx.colors;
+    return Semantics(
+      label: 'Retrying in ${widget.total.inSeconds} seconds',
+      excludeSemantics: true,
+      child: SizedBox(
+        width: 28,
+        height: 28,
+        child: CustomPaint(
+          painter: _RingPainter(c.working, _c),
+          child: Center(child: Icon(Icons.refresh, size: 14, color: c.working)),
+        ),
+      ),
+    );
+  }
+}
+
+class _RingPainter extends CustomPainter {
+  _RingPainter(this.color, this.anim) : super(repaint: anim);
+
+  final Color color;
+  final Animation<double> anim;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Full at the start of the wait, empty at its end (the full ring when not
+    // counting).
+    final left = anim.value == 0 ? 1.0 : 1 - anim.value;
+    canvas.drawArc(
+      Rect.fromLTWH(1, 1, size.width - 2, size.height - 2),
+      -math.pi / 2,
+      2 * math.pi * left,
+      false,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter old) => old.color != color;
 }

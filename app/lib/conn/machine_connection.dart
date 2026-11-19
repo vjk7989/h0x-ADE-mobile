@@ -55,8 +55,11 @@ class Ready extends ConnState {
 }
 
 class Failed extends ConnState {
-  const Failed(this.reason);
+  const Failed(this.reason, {this.retryIn});
   final String reason;
+
+  /// How long until the next try, when the connection retries by itself.
+  final Duration? retryIn;
 }
 
 /// What an agent needs from the person, for the inbox groups.
