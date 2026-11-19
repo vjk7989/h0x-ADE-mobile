@@ -390,7 +390,14 @@ void main() {
       await _frames(tester, 4);
       fake.emitView('t1', utf8.encode('back\r\n'));
       await _frames(tester, 3);
-      expect(find.text('Reconnecting to fake'), findsNothing);
+      final texts = [
+        for (final t in tester.widgetList<Text>(find.byType(Text))) t.data,
+      ];
+      expect(
+        find.text('Reconnecting to fake'),
+        findsNothing,
+        reason: 'texts: $texts',
+      );
       await _close(tester);
     });
 
