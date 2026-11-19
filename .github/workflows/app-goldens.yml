@@ -1,0 +1,37 @@
+name: app-goldens
+
+# Regenerates every golden PNG on ubuntu (the only place goldens are made)
+# and uploads them as an artifact for review. Run it from the Actions tab,
+# or touch app/test/goldens/REGENERATE on a branch to run it on push.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/app-goldens.yml'
+      - 'app/test/goldens/REGENERATE'
+
+permissions:
+  contents: read
+
+jobs:
+  goldens:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: 3.50.0
+          cache: true
+      - run: flutter pub get
+      - name: Regenerate goldens
+        run: flutter test --update-goldens
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: app-goldens
+          path: app/test/goldens
+          if-no-files-found: error
