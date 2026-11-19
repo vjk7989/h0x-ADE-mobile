@@ -3,14 +3,138 @@ import 'package:material_ui/material_ui.dart' hide Icon;
 
 import 'hx_icon_compat.dart';
 import 'hx_icons.dart';
+import '../theme/motion.dart';
 import '../theme/themes.dart';
 import '../theme/type.dart';
 
 enum HxButtonKind { primary, secondary, outline, danger }
 
+/// The press, focus and state layer every pressable control shares
+/// (design/tokens.md section 18): a state layer (hover 8 %, pressed 12 %,
+/// focused 12 % of [layer]), a 90 ms press scale to 0.97 (none when motion is
+/// reduced, or when [scale] is false: rows use the state layer only), and a
+/// 2 dp focus ring, offset 2 dp, that follows the control's radius and shows
+/// only when the keyboard or a switch drives focus.
+class HxPressable extends StatefulWidget {
+  const HxPressable({
+    super.key,
+    required this.child,
+    required this.onTap,
+    this.onLongPress,
+    this.radius = 14,
+    this.scale = true,
+    this.fill,
+    this.side,
+    this.layer,
+    this.onPressedChanged,
+    this.focusRingForTesting = false,
+  });
+
+  final Widget child;
+  final VoidCallback? onTap;
+  final VoidCallback? onLongPress;
+  final double radius;
+  final bool scale;
+
+  /// The control's own fill and edge, drawn under the ink.
+  final Color? fill;
+  final BorderSide? side;
+
+  /// The state layer colour (default: `foreground`).
+  final Color? layer;
+
+  /// Called when the finger goes down and when it leaves.
+  final ValueChanged<bool>? onPressedChanged;
+
+  /// Tests draw the keyboard-focus look without owning the focus.
+  @visibleForTesting
+  final bool focusRingForTesting;
+
+  @override
+  State<HxPressable> createState() => _HxPressableState();
+}
+
+class _HxPressableState extends State<HxPressable> {
+  var _down = false;
+  var _focused = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.hx.colors;
+    final reduced = HxMotion.reduced(context);
+    final layer = widget.layer ?? c.foreground;
+    final r = BorderRadius.circular(widget.radius);
+    final ring = widget.focusRingForTesting ||
+        (_focused &&
+            FocusManager.instance.highlightMode == FocusHighlightMode.traditional);
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final ringColor = dark ? c.ring : c.accent;
+    Widget control = Material(
+      color: widget.fill ?? Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: r,
+        side: widget.side ?? BorderSide.none,
+      ),
+      child: InkWell(
+        borderRadius: r,
+        onTap: widget.onTap,
+        onLongPress: widget.onLongPress,
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.pressed)) {
+            return layer.withValues(alpha: HxMotion.pressedLayer);
+          }
+          if (states.contains(WidgetState.focused)) {
+            return layer.withValues(alpha: HxMotion.focusedLayer);
+          }
+          if (states.contains(WidgetState.hovered)) {
+            return layer.withValues(alpha: HxMotion.hoverLayer);
+          }
+          return null;
+        }),
+        onHighlightChanged: (v) {
+          setState(() => _down = v);
+          widget.onPressedChanged?.call(v);
+        },
+        onFocusChange: (f) => setState(() => _focused = f),
+        child: widget.child,
+      ),
+    );
+    if (ring) {
+      control = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          control,
+          Positioned(
+            left: -4,
+            top: -4,
+            right: -4,
+            bottom: -4,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(widget.radius + 4),
+                  border: Border.all(color: ringColor, width: 2),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    if (!widget.scale || reduced) return control;
+    return AnimatedScale(
+      scale: _down ? HxMotion.pressScale : 1,
+      duration: HxMotion.press,
+      curve: HxMotion.standard,
+      child: control,
+    );
+  }
+}
+
 /// A 52 dp button (design/tokens.md section 11): one semantics node, label
-/// read as given, disabled at 38 % opacity.
-class HxButton extends StatefulWidget {
+/// read as given, disabled at 38 % opacity. Press, focus and state layer come
+/// from [HxPressable].
+class HxButton extends StatelessWidget {
   const HxButton({
     super.key,
     required this.label,
@@ -21,6 +145,7 @@ class HxButton extends StatefulWidget {
     this.kind = HxButtonKind.secondary,
     this.semanticsLabel,
     this.minHeight = 52,
+    this.focusRingForTesting = false,
   });
 
   final String label;
@@ -36,26 +161,13 @@ class HxButton extends StatefulWidget {
   final String? semanticsLabel;
   final double minHeight;
 
-  @override
-  State<HxButton> createState() => _HxButtonState();
-}
-
-class _HxButtonState extends State<HxButton> {
-  var _focused = false;
+  /// Tests draw the keyboard-focus look without owning the focus.
+  @visibleForTesting
+  final bool focusRingForTesting;
 
   @override
   Widget build(BuildContext context) {
-    final label = widget.label;
-    final onPressed = widget.onPressed;
-    final icon = widget.icon;
-    final lucide = widget.lucide;
-    final leading = widget.leading;
-    final kind = widget.kind;
-    final minHeight = widget.minHeight;
     final c = context.hx.colors;
-    // A keyboard focus ring: 2 dp accent, only when the keyboard drives.
-    final ring = _focused &&
-        FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
     final (bg, fg, edge) = switch (kind) {
       HxButtonKind.primary => (c.solid, c.solidForeground, c.solid),
       HxButtonKind.secondary => (c.card, c.foreground, c.hairline),
@@ -66,50 +178,39 @@ class _HxButtonState extends State<HxButton> {
     return Semantics(
       button: true,
       enabled: enabled,
-      label: widget.semanticsLabel ?? label,
+      label: semanticsLabel ?? label,
       excludeSemantics: true,
       onTap: onPressed,
       child: Opacity(
         opacity: enabled ? 1 : 0.38,
-        child: Material(
-          color: bg,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-            side: BorderSide(color: edge),
-          ),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(14),
-            onTap: onPressed,
-            onFocusChange: (f) => setState(() => _focused = f),
-            child: Container(
-              foregroundDecoration: ring
-                  ? BoxDecoration(
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: c.accent, width: 2),
-                    )
-                  : null,
-              constraints: BoxConstraints(minHeight: minHeight),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    if (leading != null || lucide != null || icon != null) ...[
-                      leading ??
-                          (lucide != null
-                              ? HxIcon(lucide, size: 20, color: fg)
-                              : Icon(icon, size: 20, color: fg)),
-                      const SizedBox(width: 10),
-                    ],
-                    Flexible(
-                      child: Text(
-                        label,
-                        textAlign: TextAlign.center,
-                        style: HxType.bodyLg.copyWith(color: fg),
-                      ),
-                    ),
+        child: HxPressable(
+          onTap: onPressed,
+          fill: bg,
+          side: BorderSide(color: edge),
+          layer: fg,
+          focusRingForTesting: focusRingForTesting,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: minHeight),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (leading != null || lucide != null || icon != null) ...[
+                    leading ??
+                        (lucide != null
+                            ? HxIcon(lucide!, size: 20, color: fg)
+                            : Icon(icon, size: 20, color: fg)),
+                    const SizedBox(width: 10),
                   ],
-                ),
+                  Flexible(
+                    child: Text(
+                      label,
+                      textAlign: TextAlign.center,
+                      style: HxType.bodyLg.copyWith(color: fg),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
