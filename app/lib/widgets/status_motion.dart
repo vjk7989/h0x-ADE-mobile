@@ -156,8 +156,10 @@ class _NeedsYouPulseState extends State<NeedsYouPulse>
                   ),
                 ),
               ),
-              DecoratedBox(
-                decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
+                ),
               ),
             ],
           );
