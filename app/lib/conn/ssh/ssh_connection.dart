@@ -2,35 +2,15 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../machine_connection.dart';
+import 'core_probe.dart';
 import 'core_rpc.dart';
 import 'known_hosts.dart';
 import 'ssh_keys.dart';
 import 'ssh_transport.dart';
 
-/// What `h0x-core` prints on stderr when it is not installed (core's own marker).
-const coreNotHere = 'h0x-core is not installed here';
-
-const missingCoreMessage = "h0x-core is not on this machine's PATH for SSH logins";
+const missingCoreMessage = 'HyperOx core (h0x-core) was not found on this machine. '
+    'If it is installed somewhere unusual, set its path under Advanced.';
 const bannerMessage = 'the login prints text; see docs/machines.md';
-
-/// The unix remote command, the same one core uses to dial a machine: found on
-/// PATH, else `~/.local/bin`; stdout stays clean for the protocol.
-String unixCommand(String args) =>
-    "sh -c 'p=\$(command -v h0x-core) || p=\$HOME/.local/bin/h0x-core; "
-    "[ -x \"\$p\" ] || { echo \"$coreNotHere\" >&2; exit 127; }; exec \"\$p\" $args'";
-
-const _windowsCore = r'.\AppData\Local\Programs\h0x-core\h0x-core.exe';
-
-/// The Windows remote command (OpenSSH's default shell may be cmd or
-/// PowerShell; both hand this to cmd.exe). `%LOCALAPPDATA%` first (cmd expands
-/// it, quoted for spaces), then the path relative to the home folder, where
-/// SSH logins start.
-String windowsCommand(String args) {
-  const local = r'"%LOCALAPPDATA%\Programs\h0x-core\h0x-core.exe"';
-  return 'cmd /d /c "if exist $local ($local $args) '
-      'else if exist $_windowsCore ($_windowsCore $args) '
-      'else (echo $coreNotHere 1>&2 & exit /b 127)"';
-}
 
 class SshTarget {
   const SshTarget({
@@ -40,6 +20,7 @@ class SshTarget {
     required this.username,
     this.port = 22,
     this.useKey = true,
+    this.corePath = '',
   });
   final String id;
   final String name;
@@ -49,6 +30,9 @@ class SshTarget {
 
   /// False for Tailscale SSH: no key is offered, the tailnet authorises.
   final bool useKey;
+
+  /// Where h0x-core is on that machine when it is not in the usual places; '' = search.
+  final String corePath;
 }
 
 /// 1, 2, 4, 8, 16, 30, 30... seconds.
@@ -160,7 +144,7 @@ class SshMachineConnection implements MachineConnection {
         _emit(Failed('connection lost', retryIn: wait));
       } on SshFatal catch (e) {
         _fatal = true;
-        _emit(Failed(e.message));
+        _emit(e is SshCoreMissing ? CoreMissing(e.message) : Failed(e.message));
         _settle(_last);
         await _transport?.close();
         return;
@@ -198,38 +182,69 @@ class SshMachineConnection implements MachineConnection {
     await core.rpc.close();
   }
 
-  /// Unix first; if the login shell is Windows' (cmd or PowerShell), the
-  /// Windows line. Tells a missing core, a chatty login and a protocol
-  /// mismatch apart.
+  FoundCore? _found;
+  var _shell = WindowsShell.unknown;
+
+  /// The command that starts core with [args] on this machine.
+  String _coreCommand(String args) {
+    final f = _found;
+    if (!_windows) return unixCommand(args, override: target.corePath);
+    return windowsRunCommand(f!, args, shell: _shell);
+  }
+
+  /// Unix first (one command that looks in the usual places and starts the
+  /// core). If the login shell is Windows' (cmd or PowerShell), a probe finds
+  /// the core and a second command starts it. Tells a missing core, a chatty
+  /// login and a protocol mismatch apart.
   Future<_OpenCore> _openCore(SshTransport t) async {
-    SshFatal? fatal;
-    for (final windows in [false, true]) {
-      final proc = await t.exec(windows ? windowsCommand('connect') : unixCommand('connect'));
-      final stderr = readAll(proc.stderr);
-      final rpc = CoreRpc(proc);
-      try {
-        await rpc.hello();
-        return _OpenCore(rpc, windows);
-      } on CoreRpcException catch (e) {
-        await rpc.close();
-        throw SshFatal(e.kind == 'unsupported_generation'
-            ? "this machine's h0x-core speaks another protocol generation; update it"
-            : 'h0x-core refused: ${e.message}');
-      } on CoreProtocolException catch (e) {
-        await rpc.close();
-        final code = await proc.exitCode(timeout: const Duration(milliseconds: 500));
-        final err = await stderr.timeout(const Duration(seconds: 1), onTimeout: () => '');
-        final notRecognized = err.contains('is not recognized');
-        if (err.contains(coreNotHere) || code == 127 || (windows && notRecognized)) {
-          throw SshFatal(missingCoreMessage);
-        }
-        if (e.banner && code == null) throw SshFatal(bannerMessage);
-        final said = err.trim().isEmpty ? e.message : err.trim();
-        fatal = SshFatal('could not start h0x-core: $said');
-        // not the unix shell's answer: try the Windows line
+    final unix = await _tryCore(t, unixCommand('connect', override: target.corePath), windows: false);
+    if (unix.core != null) return unix.core!;
+    // Not the unix shell's answer: this is a Windows login.
+    _shell = windowsShellFrom(unix.stderr);
+    final probe = await t.exec(windowsProbeCommand(override: target.corePath));
+    final out = readAll(probe.input);
+    final err = readAll(probe.stderr);
+    await probe.exitCode(timeout: const Duration(seconds: 15));
+    final found = parseWindowsProbe(await out.timeout(const Duration(seconds: 15), onTimeout: () => ''));
+    await err.timeout(const Duration(seconds: 1), onTimeout: () => '');
+    await probe.close();
+    if (found == null) throw SshCoreMissing(missingCoreMessage);
+    _found = found;
+    final win = await _tryCore(t, windowsRunCommand(found, 'connect', shell: _shell), windows: true);
+    if (win.core != null) return win.core!;
+    throw win.fatal ?? SshFatal('could not start h0x-core');
+  }
+
+  Future<({_OpenCore? core, SshFatal? fatal, String stderr})> _tryCore(
+    SshTransport t,
+    String command, {
+    required bool windows,
+  }) async {
+    final proc = await t.exec(command);
+    final stderr = readAll(proc.stderr);
+    final rpc = CoreRpc(proc);
+    try {
+      await rpc.hello();
+      return (core: _OpenCore(rpc, windows), fatal: null, stderr: '');
+    } on CoreRpcException catch (e) {
+      await rpc.close();
+      throw SshFatal(e.kind == 'unsupported_generation'
+          ? "this machine's h0x-core speaks another protocol generation; update it"
+          : 'h0x-core refused: ${e.message}');
+    } on CoreProtocolException catch (e) {
+      await rpc.close();
+      final code = await proc.exitCode(timeout: const Duration(milliseconds: 500));
+      final err = await stderr.timeout(const Duration(seconds: 1), onTimeout: () => '');
+      if (err.contains(coreNotHere) || code == 127) throw SshCoreMissing(missingCoreMessage);
+      if (!windows && windowsShellFrom(err) != WindowsShell.unknown) {
+        // the login shell is Windows': the caller probes
+        return (core: null, fatal: null, stderr: err);
       }
+      if (e.banner && code == null) throw SshFatal(bannerMessage);
+      final said = err.trim().isEmpty ? e.message : err.trim();
+      if (!windows) throw SshFatal('could not start h0x-core: $said');
+      return (core: null, fatal: SshFatal('could not start h0x-core: $said'), stderr: err);
     }
-    throw fatal!;
   }
 
   // ---- host keys (trust on first use) ----
@@ -459,7 +474,7 @@ class SshMachineConnection implements MachineConnection {
     await _ready();
     final t = _transport!;
     final proc = await t.exec(
-        _windows ? windowsCommand('bridge spaces --show --json') : unixCommand('bridge spaces --show --json'));
+        _coreCommand('bridge spaces --show --json'));
     final out = readAll(proc.input);
     final err = readAll(proc.stderr);
     final code = await proc.exitCode(timeout: const Duration(seconds: 15));

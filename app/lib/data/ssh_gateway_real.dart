@@ -36,6 +36,7 @@ class RealSshGateway implements SshGateway {
         port: m.port,
         username: m.user,
         useKey: !m.tailscale,
+        corePath: m.corePath,
       ),
       transport: dartssh2Transport,
       knownHosts: _known,

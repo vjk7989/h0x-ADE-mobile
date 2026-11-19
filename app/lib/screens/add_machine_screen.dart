@@ -46,12 +46,12 @@ import '../widgets/machine_sheets.dart';
       hint: 'Nothing was saved. Connect again and trust the key to continue.',
     );
   }
-  if (r.contains('path')) {
+  if (r.contains('core') && (r.contains('not found') || r.contains('path'))) {
     return (
-      title: 'h0x-core is not installed for SSH logins',
+      title: 'HyperOx core not found',
       hint:
-          'Install h0x-core on the machine and make sure it is on the PATH '
-          'of non-interactive logins.',
+          'Install h0x-core on the machine, or open Advanced below and enter '
+          'where it is (for example G:\\HyperOx\\core\\h0x-core.exe).',
     );
   }
   if (r.contains('prints text') || r.contains('banner')) {
@@ -94,11 +94,13 @@ class _AddMachineScreenState extends ConsumerState<AddMachineScreen> {
   final _user = TextEditingController();
   final _port = TextEditingController(text: '22');
   final _name = TextEditingController();
+  final _corePath = TextEditingController();
   final _hostFocus = FocusNode();
   final _userFocus = FocusNode();
   final _portFocus = FocusNode();
 
   bool _tailscale = false;
+  bool _advancedOpen = false;
   String? _hostError;
   String? _userError;
   String? _portError;
@@ -108,7 +110,7 @@ class _AddMachineScreenState extends ConsumerState<AddMachineScreen> {
 
   @override
   void dispose() {
-    for (final c in [_host, _user, _port, _name]) {
+    for (final c in [_host, _user, _port, _name, _corePath]) {
       c.dispose();
     }
     for (final f in [_hostFocus, _userFocus, _portFocus]) {
@@ -146,6 +148,7 @@ class _AddMachineScreenState extends ConsumerState<AddMachineScreen> {
       user: user,
       port: port,
       tailscale: _tailscale,
+      corePath: _corePath.text.trim(),
     );
     if (ref.read(sshMachinesProvider).any(machine.sameTarget)) {
       setState(
@@ -198,6 +201,7 @@ class _AddMachineScreenState extends ConsumerState<AddMachineScreen> {
         );
       }
     } else if (end is Failed) {
+      if (end is CoreMissing) _advancedOpen = true;
       setState(
         () => _failure = explainFailure(
           end.reason,
@@ -310,6 +314,12 @@ class _AddMachineScreenState extends ConsumerState<AddMachineScreen> {
         _TailscaleSwitch(
           value: _tailscale,
           onChanged: _connecting ? null : (v) => setState(() => _tailscale = v),
+        ),
+        const SizedBox(height: 12),
+        _Advanced(
+          open: _advancedOpen,
+          onToggle: () => setState(() => _advancedOpen = !_advancedOpen),
+          controller: _corePath,
         ),
       ],
     );
@@ -492,6 +502,60 @@ class _Field extends StatelessWidget {
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// Collapsed by default: where h0x-core is on that machine, for an install
+/// outside the usual places. Empty means search.
+class _Advanced extends StatelessWidget {
+  const _Advanced({required this.open, required this.onToggle, required this.controller});
+
+  final bool open;
+  final VoidCallback onToggle;
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.hx.colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Semantics(
+          button: true,
+          label: 'Advanced, ${open ? 'expanded' : 'collapsed'}',
+          excludeSemantics: true,
+          onTap: onToggle,
+          child: InkWell(
+            onTap: onToggle,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 48),
+              child: Row(
+                children: [
+                  Icon(open ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right, color: c.muted),
+                  const SizedBox(width: 8),
+                  Text('Advanced', style: HxType.bodyLg),
+                ],
+              ),
+            ),
+          ),
+        ),
+        if (open) ...[
+          const SizedBox(height: 8),
+          _Field(
+            label: 'Core path (optional)',
+            hint: r'G:\HyperOx\core\h0x-core.exe or /opt/hyperox/h0x-core',
+            controller: controller,
+            keyboard: TextInputType.url,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Only if h0x-core is installed somewhere unusual on that machine. '
+            'Leave it empty to search the usual places.',
+            style: HxType.caption.copyWith(color: c.muted),
+          ),
+        ],
       ],
     );
   }
