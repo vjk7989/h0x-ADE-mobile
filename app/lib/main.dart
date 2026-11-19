@@ -4,11 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'app.dart';
 import 'data/ssh_gateway.dart';
-import 'data/ssh_gateway_stub.dart';
+import 'data/ssh_gateway_real.dart';
 import 'theme/theme_controller.dart';
 
-// INTERIM: StubSshGateway until lib/conn/ssh compiles; then RealSshGateway
-// (lib/data/ssh_gateway_real.dart) replaces it.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final prefs = await SharedPreferences.getInstance();
@@ -16,7 +14,7 @@ Future<void> main() async {
     ProviderScope(
       overrides: [
         sharedPrefsProvider.overrideWithValue(prefs),
-        sshGatewayProvider.overrideWithValue(const StubSshGateway()),
+        sshGatewayProvider.overrideWithValue(RealSshGateway()),
       ],
       child: const HyperOxApp(),
     ),
