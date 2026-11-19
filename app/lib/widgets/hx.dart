@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:material_ui/material_ui.dart' hide Icon;
 
 import 'hx_icon_compat.dart';
@@ -267,6 +268,11 @@ class HxMark extends StatelessWidget {
     '111110000000011111000',
     '111100000000011110000',
   ];
+
+  /// The dot grid, for tools/gen_icons.py's test: the launcher icon must be
+  /// this grid.
+  @visibleForTesting
+  static List<String> get rows => _rows;
 
   @override
   Widget build(BuildContext context) {

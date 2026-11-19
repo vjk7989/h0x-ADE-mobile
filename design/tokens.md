@@ -381,3 +381,31 @@ This supersedes the "five themes" line in §1. The picker offers **every desktop
 | Sodium | dark | user | `#000000` | `#ffd60a` |
 | Voltage | dark | user | `#0d0b14` | `#00e5ff` |
 | Phosphor | dark | user | `#030a05` | `#39d353` |
+
+---
+
+<!-- Appended 2026-11-19 with PLAN-motion (approved). Sections 1–17 are unchanged. -->
+
+## 18. Motion tokens v2 (`lib/theme/motion.dart`)
+This extends §9: the values there stay, and these are added. Every animation reads its duration and curve from here; there are no literals in widgets.
+
+| Token | Duration | Curve | Use |
+|---|---|---|---|
+| `press` | 90 ms | standard | press scale 1 → 0.97 (buttons, chips, key-bar keys); rows use the state layer only |
+| `stateLayer` | — | — | hover 8 %, pressed 12 %, focused 12 % of `foreground`, over the control's fill |
+| `focusRing` | — | — | 2 dp `ring` (paper: `accent`), offset 2 dp, follows the control radius; keyboard / switch focus only |
+| `fadeThrough` | 200 ms | standard | bottom-bar and rail tab changes |
+| `sharedAxis` | 300 ms | emphasized | push / pop between screens (machine → detail) |
+| `container` | 350 ms | emphasized | inbox row → agent (container transform) |
+| `stagger` | 24 ms per item, at most 6 | — | first load of lists |
+| `stateChange` | 200 ms | standard | dot colour, tag word, pill slide |
+| `check` | 240 ms | emphasized decel | check stroke draw (done, to-do tick) |
+| `intro` | 900 ms total | see PLAN-motion §2 | cold-start intro (assemble 0–420, settle 420–560, hand-off 560–900) |
+
+**Curves:**
+- standard `Cubic(0.2, 0, 0, 1)`;
+- emphasized decel `Cubic(0.05, 0.7, 0.1, 1)`;
+- emphasized accel `Cubic(0.3, 0, 0.8, 0.15)`;
+- emphasized = the decel curve on enter and the accel curve on exit.
+
+**Reduce motion** (`MediaQuery.disableAnimations`): durations become 0, except fades, which are capped at 100 ms (the intro at 150 ms). There is no scale, no slide and no stagger. State layers and focus rings stay, because they are not motion.
