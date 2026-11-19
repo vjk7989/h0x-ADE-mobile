@@ -16,6 +16,7 @@ import '../widgets/app_shell.dart';
 import '../widgets/hx.dart';
 import '../widgets/hx_bits.dart';
 import '../widgets/hx_icons.dart';
+import '../widgets/hx_refresh.dart';
 import '../widgets/status_motion.dart';
 
 /// The desktop's to-do lists from a chosen computer (design: To-do). The
@@ -524,6 +525,7 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
     } else {
       body = _tasks(context, c, s, list, banners, open, done, total);
     }
+    if (!(s.loading && doc == null)) body = HxRefresh(onRefresh: c.load, child: body);
 
     return PopScope(
       // Back while editing cancels the edit; it does not leave the screen.

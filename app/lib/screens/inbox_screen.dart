@@ -17,6 +17,7 @@ import '../widgets/app_shell.dart';
 import '../widgets/hx.dart';
 import '../widgets/hx_bits.dart';
 import '../widgets/hx_icons.dart';
+import '../widgets/hx_refresh.dart';
 import '../widgets/hx_transitions.dart';
 import '../widgets/status_motion.dart';
 import 'agent_screen.dart';
@@ -253,7 +254,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       children: [
         header,
         Expanded(
-          child: RefreshIndicator(
+          child: HxRefresh(
             onRefresh: controller.refresh,
             child: ListView(padding: const EdgeInsets.only(bottom: 16), children: children),
           ),

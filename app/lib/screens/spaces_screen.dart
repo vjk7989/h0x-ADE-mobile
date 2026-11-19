@@ -12,6 +12,7 @@ import '../widgets/app_shell.dart';
 import '../widgets/hx.dart';
 import '../widgets/hx_bits.dart';
 import '../widgets/hx_icons.dart';
+import '../widgets/hx_refresh.dart';
 
 /// A machine's spaces, tabs and split panes as a read-only map (design: Spaces).
 class SpacesScreen extends ConsumerStatefulWidget {
@@ -199,7 +200,7 @@ class _SpacesScreenState extends ConsumerState<SpacesScreen> {
     } else if (wide) {
       content = _wide(context, conn, controller, data, view, notes);
     } else {
-      content = RefreshIndicator(
+      content = HxRefresh(
         onRefresh: controller.load,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),

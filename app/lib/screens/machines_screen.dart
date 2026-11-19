@@ -20,6 +20,7 @@ import '../state/inbox.dart';
 import '../widgets/app_shell.dart';
 import '../widgets/hx.dart';
 import '../widgets/hx_bits.dart';
+import '../widgets/hx_refresh.dart';
 import '../widgets/machine_sheets.dart';
 import '../widgets/status_motion.dart';
 
@@ -143,7 +144,9 @@ class _MachinesScreenState extends ConsumerState<MachinesScreen> {
               Expanded(
                 child: entries.isEmpty
                     ? const _EmptyState()
-                    : ListView(
+                    : HxRefresh(
+                        onRefresh: ref.read(machineStatusProvider.notifier).refresh,
+                        child: ListView(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
                         children: [
                           if (account.isNotEmpty)
@@ -161,6 +164,7 @@ class _MachinesScreenState extends ConsumerState<MachinesScreen> {
                               onSelect: wide ? select : null,
                             ),
                         ],
+                        ),
                       ),
               ),
             ],
