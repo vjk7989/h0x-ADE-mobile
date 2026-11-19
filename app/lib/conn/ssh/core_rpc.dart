@@ -277,7 +277,7 @@ class CoreRpc {
     }
     final err = msg['error'];
     if (err is Map) {
-      final e = _rpcError(err);
+      final e = _rpcError(err.cast<String, dynamic>());
       pending?.completeError(e);
       _fail(e);
       _link.close();
@@ -367,7 +367,7 @@ class CoreRpc {
       if (c == null) return;
       final err = m['error'];
       if (err is Map) {
-        c.completeError(_rpcError(err));
+        c.completeError(_rpcError(err.cast<String, dynamic>()));
         return;
       }
       final result = m['result'];
@@ -389,7 +389,7 @@ class CoreRpc {
     }
   }
 
-  CoreRpcException _rpcError(Map err) {
+  CoreRpcException _rpcError(Map<String, dynamic> err) {
     final data = err['data'];
     return CoreRpcException(
       (err['code'] as num?)?.toInt() ?? -32603,

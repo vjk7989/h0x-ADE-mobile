@@ -15,10 +15,7 @@ abstract class SecretStore {
 
 class FlutterSecretStore implements SecretStore {
   FlutterSecretStore([FlutterSecureStorage? storage])
-      : _s = storage ??
-            const FlutterSecureStorage(
-              aOptions: AndroidOptions(encryptedSharedPreferences: true),
-            );
+      : _s = storage ?? const FlutterSecureStorage();
   final FlutterSecureStorage _s;
 
   @override
