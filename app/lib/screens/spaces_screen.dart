@@ -11,6 +11,7 @@ import '../theme/type.dart';
 import '../widgets/app_shell.dart';
 import '../widgets/hx.dart';
 import '../widgets/hx_bits.dart';
+import '../widgets/hx_icons.dart';
 
 /// A machine's spaces, tabs and split panes as a read-only map (design: Spaces).
 class SpacesScreen extends ConsumerStatefulWidget {
@@ -230,6 +231,46 @@ class _SpacesScreenState extends ConsumerState<SpacesScreen> {
     );
   }
 
+  /// The selected tab's panes side by side, filling the height, each with
+  /// the live last lines (spaces board 03). Four or more wrap in rows of two.
+  Widget _widePanes(MachineConnection conn, SpacesData data, List<String> panes) {
+    Widget card(String pane) => _PaneCard(
+      pane: pane,
+      session: data.sessionOf(pane),
+      conn: conn,
+      preview: true,
+      expand: true,
+      onTap: () {
+        final s = data.sessionOf(pane);
+        if (s != null) _openPane(conn, s.terminal);
+      },
+    );
+    final perRow = panes.length <= 3 ? panes.length : 2;
+    final rows = (panes.length / perRow).ceil();
+    return Column(
+      children: [
+        for (var r = 0; r < rows; r++) ...[
+          if (r > 0) const SizedBox(height: 8),
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var j = 0; j < perRow; j++) ...[
+                  if (j > 0) const SizedBox(width: 8),
+                  Expanded(
+                    child: r * perRow + j < panes.length
+                        ? card(panes[r * perRow + j])
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _wide(BuildContext context, MachineConnection conn, SpacesController controller,
       SpacesData data, SpacesView view, List<Widget> notes) {
     final c = context.hx.colors;
@@ -287,20 +328,10 @@ class _SpacesScreenState extends ConsumerState<SpacesScreen> {
               if (ti < 0)
                 const _NoTabs()
               else
-                for (final pane in space.tabs[ti].panes)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _PaneCard(
-                      pane: pane,
-                      session: data.sessionOf(pane),
-                      conn: conn,
-                      preview: true,
-                      onTap: () {
-                        final s = data.sessionOf(pane);
-                        if (s != null) _openPane(conn, s.terminal);
-                      },
-                    ),
-                  ),
+                SizedBox(
+                  height: (MediaQuery.sizeOf(context).height - 200).clamp(240.0, 680.0),
+                  child: _widePanes(conn, data, space.tabs[ti].panes),
+                ),
             ],
           ),
         ),
@@ -328,6 +359,11 @@ class _MachineChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.hx.colors;
     final state = offline ? 'offline' : 'online';
+    final big = MediaQuery.textScalerOf(context).scale(14) / 14 >= 1.5;
+    final stateText = Text(
+      '● $state',
+      style: HxType.mono.copyWith(color: offline ? c.muted : c.ok),
+    );
     return Semantics(
       button: onTap != null,
       label: 'Machine: ${machine.name}, $state${onTap != null ? ', change' : ''}',
@@ -350,13 +386,41 @@ class _MachineChip extends StatelessWidget {
                 children: [
                   Icon(Icons.computer_outlined, size: 20, color: c.foreground),
                   const SizedBox(width: 10),
-                  Flexible(child: Text(machine.name, style: HxType.heading)),
-                  const SizedBox(width: 8),
-                  ModeTag(machine.mode),
-                  const SizedBox(width: 8),
-                  Text('● $state',
-                      style: HxType.mono.copyWith(color: offline ? c.muted : c.ok)),
-                  const Spacer(),
+                  Expanded(
+                    child: big
+                        // From 1.5x the tag and state go on a second line.
+                        ? Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                machine.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: HxType.heading,
+                              ),
+                              Wrap(
+                                spacing: 8,
+                                children: [ModeTag(machine.mode), stateText],
+                              ),
+                            ],
+                          )
+                        : Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  machine.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: HxType.heading,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ModeTag(machine.mode),
+                              const SizedBox(width: 8),
+                              stateText,
+                            ],
+                          ),
+                  ),
                   if (onTap != null) Icon(Icons.unfold_more, size: 20, color: c.muted),
                 ],
               ),
@@ -449,22 +513,53 @@ class _SkeletonSpace extends StatelessWidget {
   }
 }
 
+/// A tonal button: the `selected` fill, a Lucide `play`, "Start agent"
+/// 13.5/600, 48 dp tall, radius 12 (spaces board 01).
 class _StartButton extends StatelessWidget {
   const _StartButton({required this.enabled, required this.onTap});
   final bool enabled;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => SizedBox(
-        width: 160,
-        child: HxButton(
-          label: 'Start agent',
-          icon: Icons.play_arrow_outlined,
-          kind: HxButtonKind.secondary,
-          minHeight: 48,
-          onPressed: enabled ? onTap : null,
+  Widget build(BuildContext context) {
+    final c = context.hx.colors;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final tint = dark ? c.accent : c.foreground;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: 'Start agent',
+      excludeSemantics: true,
+      onTap: enabled ? onTap : null,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.38,
+        child: Material(
+          color: c.selected,
+          borderRadius: BorderRadius.circular(12),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: enabled ? onTap : null,
+            child: Container(
+              constraints: const BoxConstraints(minHeight: 48, minWidth: 48),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  HxIcon('play', size: 18, color: tint),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Start agent',
+                    style: HxType.weight(HxType.bodyLg, 600).copyWith(fontSize: 13.5),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _NoTabs extends StatelessWidget {
@@ -576,21 +671,7 @@ class _SpaceCard extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 12, bottom: 6),
                 child: Text(tab.name, style: HxType.bodySm.copyWith(color: c.muted)),
               ),
-              if (stack)
-                for (final p in tab.panes)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _pane(p),
-                  )
-              else
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final p in tab.panes)
-                      SizedBox(width: _paneWidth(context), child: _pane(p)),
-                  ],
-                ),
+              _paneGrid(tab.panes),
             ],
           ],
         ),
@@ -609,10 +690,45 @@ class _SpaceCard extends StatelessWidget {
     );
   }
 
-  double _paneWidth(BuildContext context) {
-    // two per row on a phone: card padding 16 + 12, gap 8
-    final w = MediaQuery.sizeOf(context).width - 32 - 24 - 8;
-    return (w / 2).floorToDouble();
+  /// The panes of a tab, side by side as on the board: 1 pane full width,
+  /// 2 or 3 in one row of equal panes, 4 or more in rows of two. At large
+  /// text they stack as a list. Panes are 104 dp tall (128 for 3).
+  Widget _paneGrid(List<String> panes) {
+    if (panes.isEmpty) return const SizedBox.shrink();
+    if (stack) {
+      return Column(
+        children: [
+          for (final p in panes)
+            Padding(padding: const EdgeInsets.only(bottom: 8), child: _pane(p)),
+        ],
+      );
+    }
+    final perRow = panes.length <= 3 ? panes.length : 2;
+    final height = panes.length == 3 ? 128.0 : 104.0;
+    final rows = <Widget>[];
+    for (var i = 0; i < panes.length; i += perRow) {
+      final slice = panes.sublist(i, (i + perRow).clamp(0, panes.length));
+      rows.add(
+        Padding(
+          padding: EdgeInsets.only(bottom: i + perRow < panes.length ? 8 : 0),
+          child: SizedBox(
+            height: height,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (var j = 0; j < perRow; j++) ...[
+                  if (j > 0) const SizedBox(width: 8),
+                  Expanded(
+                    child: j < slice.length ? _pane(slice[j]) : const SizedBox.shrink(),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    return Column(children: rows);
   }
 }
 
@@ -623,6 +739,7 @@ class _PaneCard extends StatelessWidget {
     required this.conn,
     required this.preview,
     required this.onTap,
+    this.expand = false,
   });
 
   final String pane;
@@ -630,6 +747,9 @@ class _PaneCard extends StatelessWidget {
   final MachineConnection? conn;
   final bool preview;
   final VoidCallback? onTap;
+
+  /// Fill the height the parent gives (the wide layout).
+  final bool expand;
 
   @override
   Widget build(BuildContext context) {
@@ -642,11 +762,15 @@ class _PaneCard extends StatelessWidget {
     final needs = !finished && g == AgentGroup.needsYou;
     final command = s == null ? '' : s.agent;
     final label = '$pane${command.isEmpty ? '' : ', $command'}, $word';
+    final dark = Theme.of(context).brightness == Brightness.dark;
     final card = Container(
       constraints: const BoxConstraints(minHeight: 72),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
+        // A needs-you pane has a 1.5 dp `working` edge; the others a hairline
+        // on `well` (dark) or #f6f6f4 (light).
+        color: dark ? c.well : const Color(0xFFF6F6F4),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: needs ? c.working : (finished ? c.outline : c.hairline),
           width: needs ? 1.5 : 1,
@@ -658,13 +782,25 @@ class _PaneCard extends StatelessWidget {
           Row(children: [
             Container(width: 8, height: 8, decoration: BoxDecoration(color: tone, shape: BoxShape.circle)),
             const SizedBox(width: 6),
-            Expanded(child: Text(pane, style: HxType.bodyLg.copyWith(fontSize: 14))),
+            Expanded(
+              child: Text(
+                pane,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: HxType.weight(HxType.bodyLg, 600).copyWith(fontSize: 13.5),
+              ),
+            ),
           ]),
           if (command.isNotEmpty)
-            Text(command, style: HxType.mono.copyWith(color: c.muted)),
+            Text(
+              command,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: HxType.mono.copyWith(color: c.muted, fontSize: 11.5),
+            ),
           if (preview && conn != null && s != null)
-            _Preview(conn: conn!, terminal: s.terminal),
-          const SizedBox(height: 6),
+            Flexible(child: _Preview(conn: conn!, terminal: s.terminal)),
+          if (expand) const Spacer() else const SizedBox(height: 6),
           HxTag(word, color: tone),
         ],
       ),
@@ -674,7 +810,7 @@ class _PaneCard extends StatelessWidget {
       label: label,
       excludeSemantics: true,
       onTap: onTap,
-      child: InkWell(borderRadius: BorderRadius.circular(12), onTap: onTap, child: card),
+      child: InkWell(borderRadius: BorderRadius.circular(10), onTap: onTap, child: card),
     );
   }
 }
