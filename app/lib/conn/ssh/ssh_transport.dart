@@ -16,6 +16,11 @@ class SshFatal implements Exception {
   String toString() => message;
 }
 
+/// h0x-core was not found on the machine (the UI offers the path override).
+class SshCoreMissing extends SshFatal {
+  SshCoreMissing(super.message);
+}
+
 /// One running remote command: stdout is the [ByteLink] input.
 abstract class RemoteProcess implements ByteLink {
   Stream<List<int>> get stderr;

@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hyperox/conn/machine_connection.dart';
+import 'package:hyperox/conn/ssh/core_probe.dart';
 import 'package:hyperox/conn/ssh/core_rpc.dart';
 import 'package:hyperox/conn/ssh/known_hosts.dart';
 import 'package:hyperox/conn/ssh/ssh_connection.dart';
@@ -29,9 +30,14 @@ class Rig {
     exec = (cmd) => cmd.contains('bridge spaces') ? spacesProcess() : FakeCoreProcess(core);
   }
 
-  SshMachineConnection make({bool useKey = true}) => SshMachineConnection(
+  SshMachineConnection make({bool useKey = true, String corePath = ''}) => SshMachineConnection(
         target: SshTarget(
-            id: 'm1', name: 'box', host: 'box.local', username: 'me', useKey: useKey),
+            id: 'm1',
+            name: 'box',
+            host: 'box.local',
+            username: 'me',
+            useKey: useKey,
+            corePath: corePath),
         transport: ({required host, required port, required username, required key, required verify}) {
           final t = FakeSshTransport(
             onExec: (c) => exec(c),
@@ -80,43 +86,107 @@ void main() {
       await rig.known.trust('box.local', 22, 'SHA256:hostkey');
     });
 
-    test('unix login: the unix command is used, os unix, state ready', () async {
+    test('the unix login runs the one find-and-start command, once', () async {
       final c = await rig.up();
-      expect(rig.transports.single.commands.single, unixCommand('connect'));
-      expect(c.machine.os, 'unix');
-      expect(c.machine.online, isTrue);
-      expect(c.machine.mode, ConnMode.ssh);
+      expect(rig.transports.single.commands, [unixCommand('connect')]);
       await c.close();
     });
 
-    test('the unix command finds core on PATH, then ~/.local/bin, and keeps stdout clean', () {
-      final cmd = unixCommand('connect');
-      expect(cmd, contains(r'command -v h0x-core'));
-      expect(cmd, contains(r'$HOME/.local/bin/h0x-core'));
-      expect(cmd, contains('exit 127'));
-      expect(cmd, contains('>&2'));
-      expect(cmd, endsWith(r'exec "$p" connect' "'"));
-    });
+    // A Windows machine as the fake transport sees it: sh is not there, the
+    // probe answers with [found], and the core runs from the path it printed.
+    RemoteProcess Function(String) windows({
+      String? found,
+      String stderr = _notRecognized,
+      void Function(String)? seen,
+    }) =>
+        (cmd) {
+          seen?.call(cmd);
+          if (cmd.startsWith('sh -c')) return ScriptedProcess(stderr: stderr, code: 1);
+          if (cmd.startsWith('powershell')) {
+            return ScriptedProcess(stdout: found ?? '', code: 0);
+          }
+          if (cmd.contains('bridge spaces')) {
+            return ScriptedProcess(stdout: '[{"name":"a","folder":"C:\\\\x"}]', code: 0);
+          }
+          return FakeCoreProcess(rig.core);
+        };
 
-    test('a Windows login (cmd or PowerShell) falls back to the Windows command', () async {
-      rig.exec = (cmd) {
-        if (cmd.startsWith('sh -c')) return ScriptedProcess(stderr: _notRecognized, code: 1);
-        if (cmd.contains('bridge spaces')) {
-          return ScriptedProcess(stdout: '[{"name":"a","folder":"C:\\\\x"}]', code: 0);
-        }
-        return FakeCoreProcess(rig.core);
-      };
+    const core = 'H0X_CORE=G:\\HyperOx\\core\\h0x-core.exe\r\nH0X_SHORT=G:\\HYPERO~1\\core\\H0X-CO~1.EXE\r\n';
+
+    test('a Windows login: unix attempt, one probe, then the core from the probed path', () async {
+      rig.exec = windows(found: core);
       final c = await rig.up();
       final cmds = rig.transports.single.commands;
-      expect(cmds, [unixCommand('connect'), windowsCommand('connect')]);
-      expect(cmds[1], startsWith('cmd /d /c "if exist'));
-      expect(cmds[1], contains(r'.\AppData\Local\Programs\h0x-core\h0x-core.exe'));
+      expect(cmds, hasLength(3));
+      expect(cmds[0], unixCommand('connect'));
+      expect(cmds[1], windowsProbeCommand());
+      expect(cmds[2], r'cmd /d /c G:\HYPERO~1\core\H0X-CO~1.EXE connect');
       expect(c.machine.os, 'windows');
-      // the second exec (spaces) uses the Windows line too
+      // the spaces exec reuses the probed path: no second probe
       final v = await c.spaces();
-      expect(rig.transports.single.commands.last, windowsCommand('bridge spaces --show --json'));
+      expect(rig.transports.single.commands.last,
+          r'cmd /d /c G:\HYPERO~1\core\H0X-CO~1.EXE bridge spaces --show --json');
+      expect(rig.transports.single.commands.where((x) => x.startsWith('powershell')), hasLength(1));
       expect(v.spaces.single.folder, r'C:\x');
       await c.close();
+    });
+
+    test('PowerShell as the login shell is told from cmd; a spaced path is called with &', () async {
+      const spaced = 'H0X_CORE=G:\\Hyper Ox\\core\\h0x-core.exe\r\nH0X_SHORT=G:\\Hyper Ox\\core\\h0x-core.exe\r\n';
+      const psError =
+          "sh : The term 'sh' is not recognized as the name of a cmdlet, function, script file, or operable program.";
+      rig.exec = windows(found: spaced, stderr: psError);
+      final c = await rig.up();
+      expect(rig.transports.single.commands.last, r'& "G:\Hyper Ox\core\h0x-core.exe" connect');
+      await c.close();
+    });
+
+    test('cmd as the login shell with a spaced path: quoted for cmd', () async {
+      const spaced = 'H0X_CORE=G:\\Hyper Ox\\core\\h0x-core.exe\r\nH0X_SHORT=G:\\Hyper Ox\\core\\h0x-core.exe\r\n';
+      rig.exec = windows(found: spaced);
+      final c = await rig.up();
+      expect(rig.transports.single.commands.last, r'cmd /d /c ""G:\Hyper Ox\core\h0x-core.exe" connect"');
+      await c.close();
+    });
+
+    test('the override reaches the unix command and the Windows probe', () async {
+      final seen = <String>[];
+      rig.exec = windows(found: core, seen: seen.add);
+      final c = rig.make(corePath: r'G:\HyperOx\core\h0x-core.exe');
+      await c.start();
+      expect(seen.first, unixCommand('connect', override: r'G:\HyperOx\core\h0x-core.exe'));
+      expect(seen[1], windowsProbeCommand(override: r'G:\HyperOx\core\h0x-core.exe'));
+      expect(seen.first, endsWith(r"sh 'G:\HyperOx\core\h0x-core.exe'"));
+      await c.close();
+    });
+
+    test('missing everywhere on Windows: the core-missing state, no retry', () async {
+      rig.exec = windows(found: '');
+      final c = rig.make();
+      final s = await c.start();
+      expect(s, isA<CoreMissing>().having((f) => f.reason, 'reason', missingCoreMessage));
+      expect(missingCoreMessage, contains('Advanced'));
+      expect(rig.delays, isEmpty);
+      await c.close();
+    });
+
+    test('missing everywhere on unix is the same state', () async {
+      rig.exec = (_) => ScriptedProcess(stderr: '$coreNotHere\n', code: 127);
+      final s = await rig.make().start();
+      expect(s, isA<CoreMissing>());
+    });
+
+    test('a probe that prints a banner but no core is still missing', () async {
+      rig.exec = windows(found: 'Welcome to WIN-BOX\r\n');
+      final s = await rig.make().start();
+      expect(s, isA<CoreMissing>());
+    });
+
+    test('a failure that is not about the core is not reported as missing', () async {
+      rig.exec = (_) => ScriptedProcess(stderr: 'sh: 1: boom', code: 3);
+      final s = await rig.make().start();
+      expect(s, isNot(isA<CoreMissing>()));
+      expect((s as Failed).reason, contains('could not start h0x-core'));
     });
 
     test('exit 127 with core own marker: not on the PATH message, no retry', () async {
@@ -304,16 +374,6 @@ void main() {
       sub.resume();
       await waitFor(() => p.creditsReceived >= 65536);
       await c.close();
-    });
-
-    test('the Windows command tries %LOCALAPPDATA% first, quoted, then the home path', () {
-      final cmd = windowsCommand('connect');
-      const local = r'"%LOCALAPPDATA%\Programs\h0x-core\h0x-core.exe"';
-      const home = r'.\AppData\Local\Programs\h0x-core\h0x-core.exe';
-      expect(cmd.indexOf(local), greaterThan(0));
-      expect(cmd.indexOf(local), lessThan(cmd.indexOf(home)));
-      expect(cmd, startsWith('cmd /d /c "if exist $local ($local connect) else if exist $home'));
-      expect(cmd, endsWith('exit /b 127)"'));
     });
 
     test('notices: blocked, done, error and finished only, with agent and folder', () async {
