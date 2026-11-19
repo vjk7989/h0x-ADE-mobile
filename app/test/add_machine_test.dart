@@ -342,11 +342,32 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/add_machine_hostkey_dark.png'),
       );
+    });
+
+    testWidgets('semantics: first host key sheet', (tester) async {
+      await pumpGolden(
+        tester,
+        Scaffold(
+          body: FirstHostKeySheet(
+            address: 'dev@devbox.tail3a1f.ts.net:22',
+            fingerprint: 'SHA256:4mQe0rT7xLq9ZkP2vB8nYdW1cH5sA3uJ6fGtR0oEiXM',
+            onTrust: () {},
+            onCancel: () {},
+          ),
+        ),
+        brightness: Brightness.dark,
+        dpr: 3.0,
+      );
       await expectAccessible(tester);
     });
 
     testWidgets('semantics: labelled targets of at least 48 dp', (tester) async {
-      await pumpGolden(tester, const AddMachineScreen(), overrides: overrides);
+      await pumpGolden(
+        tester,
+        const AddMachineScreen(),
+        overrides: overrides,
+        dpr: 3.0,
+      );
       await expectAccessible(tester);
     });
 
@@ -357,6 +378,7 @@ void main() {
         brightness: Brightness.dark,
         textScale: 2.0,
         overrides: overrides,
+        dpr: 3.0,
       );
       await expectAccessible(tester);
     });

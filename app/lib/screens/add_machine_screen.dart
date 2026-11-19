@@ -171,12 +171,7 @@ class _AddMachineScreenState extends ConsumerState<AddMachineScreen> {
         session.rejectHostKey();
       }
     });
-    ConnState end;
-    try {
-      end = await session.start();
-    } catch (e) {
-      end = Failed('$e');
-    }
+    final end = await _first(session);
     // The attempt is over: stop listening and release the connection.
     unawaited(sub.cancel());
     unawaited(session.close());
@@ -208,6 +203,14 @@ class _AddMachineScreenState extends ConsumerState<AddMachineScreen> {
           tailscale: _tailscale,
         ),
       );
+    }
+  }
+
+  Future<ConnState> _first(SshSession session) async {
+    try {
+      return await session.start();
+    } catch (e) {
+      return Failed('$e');
     }
   }
 

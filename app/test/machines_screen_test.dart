@@ -240,6 +240,7 @@ void main() {
       Brightness brightness = Brightness.light,
       double scale = 1.0,
       Frame frame = Frame.phone,
+      double dpr = 1.0,
     }) async {
       final gw = FakeGateway(byHost: byHost, fallback: FakeBehavior());
       await pumpGolden(
@@ -248,6 +249,7 @@ void main() {
         brightness: brightness,
         textScale: scale,
         frame: frame,
+        dpr: dpr,
         stored: storedMachines(machines),
         overrides: <Override>[sshGatewayProvider.overrideWithValue(gw)],
       );
@@ -424,6 +426,7 @@ void main() {
         tester,
         machines: [devbox, raspi],
         byHost: {'192.168.1.42': _changed},
+        dpr: 3.0,
       );
       await expectAccessible(tester);
       await pump(
@@ -432,12 +435,13 @@ void main() {
         byHost: {'192.168.1.42': _changed},
         brightness: Brightness.dark,
         scale: 2.0,
+        dpr: 3.0,
       );
       await expectAccessible(tester);
     });
 
     testWidgets('semantics: empty state', (tester) async {
-      await pump(tester, machines: const []);
+      await pump(tester, machines: const [], dpr: 3.0);
       await expectAccessible(tester);
     });
   });
@@ -465,7 +469,6 @@ void main() {
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/machines_hostkey_dark.png'),
       );
-      await expectAccessible(tester);
       await tester.tap(find.text("Don't connect"));
       expect(dont, 1);
 
@@ -489,6 +492,36 @@ void main() {
       await expectLater(
         find.byType(MaterialApp),
         matchesGoldenFile('goldens/machines_approval_light.png'),
+      );
+    });
+
+    testWidgets('semantics: both sheets', (tester) async {
+      await pumpGolden(
+        tester,
+        Scaffold(
+          body: HostKeyChangedSheet(
+            machineName: 'raspi',
+            address: 'pi@192.168.1.42:22',
+            known: 'SHA256:9fWqX2vHk8mL1nRzT4cYb7JdA3eUo5sPiGt0QxVwM2z',
+            offered: 'SHA256:Qm7xT1cBn5Za8RvLd2KfWy9HuJ3ePo6sGt0XiAcN4rE',
+            onDontConnect: () {},
+            onTrustNew: () {},
+          ),
+        ),
+        brightness: Brightness.dark,
+        dpr: 3.0,
+      );
+      await expectAccessible(tester);
+      await pumpGolden(
+        tester,
+        Scaffold(
+          body: ApprovalSheet(
+            machineName: 'studio-pc',
+            code: '482913',
+            onCancel: () {},
+          ),
+        ),
+        dpr: 3.0,
       );
       await expectAccessible(tester);
     });

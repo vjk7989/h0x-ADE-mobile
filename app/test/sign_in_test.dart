@@ -288,6 +288,20 @@ void main() {
           find.byType(MaterialApp),
           matchesGoldenFile('goldens/unlock_${b.name}.png'),
         );
+      }
+    });
+
+    testWidgets('semantics: labelled targets', (tester) async {
+      for (final b in [Brightness.light, Brightness.dark]) {
+        await pumpGolden(
+          tester,
+          const UnlockScreen(),
+          brightness: b,
+          dpr: 3.0,
+          overrides: [
+            biometricGateProvider.overrideWithValue(FakeGate(accept: false)),
+          ],
+        );
         await expectAccessible(tester);
       }
     });
@@ -354,7 +368,7 @@ void main() {
     });
 
     testWidgets('semantics: SSH-only build', (tester) async {
-      await pumpGolden(tester, const SignInScreen());
+      await pumpGolden(tester, const SignInScreen(), dpr: 3.0);
       await expectAccessible(tester);
     });
 
@@ -364,6 +378,7 @@ void main() {
         const SignInScreen(accountMode: true),
         brightness: Brightness.dark,
         textScale: 2.0,
+        dpr: 3.0,
       );
       await expectAccessible(tester);
     });

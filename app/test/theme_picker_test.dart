@@ -144,7 +144,7 @@ void main() {
     }
 
     testWidgets('semantics: labelled targets of at least 48 dp', (tester) async {
-      await pumpGolden(tester, const ThemePickerScreen());
+      await pumpGolden(tester, const ThemePickerScreen(), dpr: 3.0);
       await expectAccessible(tester);
     });
 
@@ -154,6 +154,7 @@ void main() {
         const ThemePickerScreen(),
         brightness: Brightness.dark,
         textScale: 2.0,
+        dpr: 3.0,
       );
       await expectAccessible(tester);
     });

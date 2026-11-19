@@ -17,7 +17,7 @@ enum Frame {
 
 /// Pumps [child] in a [frame] at [textScale] with a HyperOx theme: [themeId],
 /// or `paper` (light) / `darkmatter` (dark) by [brightness]. Device pixel
-/// ratio is 1, so a golden is 1 px per dp. Goldens are generated on ubuntu
+/// ratio is 1, so a golden is 1 px per dp ([dpr] 3 is for the accessibility checks). Goldens are generated on ubuntu
 /// only (the app-goldens workflow).
 Future<void> pumpGolden(
   WidgetTester tester,
@@ -26,11 +26,12 @@ Future<void> pumpGolden(
   Brightness brightness = Brightness.light,
   double textScale = 1.0,
   String? themeId,
+  double dpr = 1.0,
   Map<String, Object> stored = const {},
   List<Override> overrides = const [],
 }) async {
-  tester.view.physicalSize = frame.size;
-  tester.view.devicePixelRatio = 1.0;
+  tester.view.physicalSize = frame.size * dpr;
+  tester.view.devicePixelRatio = dpr;
   addTearDown(tester.view.reset);
   tester.platformDispatcher.platformBrightnessTestValue = brightness;
   addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);

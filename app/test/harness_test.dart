@@ -65,7 +65,7 @@ void main() {
   });
 
   testWidgets('a labelled 48 dp button passes the helper', (tester) async {
-    await pumpGolden(tester, const _Sample());
+    await pumpGolden(tester, const _Sample(), dpr: 3.0);
     await expectAccessible(tester);
   });
 
