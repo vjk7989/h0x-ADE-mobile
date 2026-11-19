@@ -42,7 +42,30 @@ class _BadButton extends StatelessWidget {
   }
 }
 
+class _PaleText extends StatelessWidget {
+  const _PaleText();
+
+  @override
+  Widget build(BuildContext context) => const Scaffold(
+    body: Center(
+      child: Text('pale', style: TextStyle(color: Color(0xFFBBBBBB), fontSize: 14)),
+    ),
+  );
+}
+
 void main() {
+  testWidgets('light grey text on the page fails the contrast check', (
+    tester,
+  ) async {
+    await pumpGolden(tester, const _PaleText());
+    expect(textContrastFailures(tester), isNotEmpty);
+  });
+
+  testWidgets('theme text passes the contrast check', (tester) async {
+    await pumpGolden(tester, const _Sample());
+    expect(textContrastFailures(tester), isEmpty);
+  });
+
   testWidgets('sample widget golden, phone light', (tester) async {
     await pumpGolden(tester, const _Sample());
     await expectLater(

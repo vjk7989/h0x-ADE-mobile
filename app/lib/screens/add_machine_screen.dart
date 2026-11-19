@@ -263,8 +263,8 @@ class _AddMachineScreenState extends ConsumerState<AddMachineScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            SizedBox(
-              height: 64,
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 64),
               child: Row(
                 children: [
                   const SizedBox(width: 4),

@@ -79,8 +79,8 @@ class _MachinesScreenState extends ConsumerState<MachinesScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                height: 64,
+              ConstrainedBox(
+                constraints: const BoxConstraints(minHeight: 64),
                 child: Row(
                   children: [
                     const SizedBox(width: 16),
@@ -558,6 +558,7 @@ class _MachineRow extends ConsumerWidget {
   }
 
   Future<void> _rename(BuildContext context, WidgetRef ref, SshMachine m) async {
+    final repo = ref.read(sshMachinesProvider.notifier);
     final ctl = TextEditingController(text: m.name);
     String? error;
     final name = await showDialog<String>(
@@ -590,10 +591,8 @@ class _MachineRow extends ConsumerWidget {
         ),
       ),
     );
-    ctl.dispose();
-    if (name != null) {
-      await ref.read(sshMachinesProvider.notifier).rename(m.id, name);
-    }
+    // The controller is not disposed here: the dialog is still animating out.
+    if (name != null) await repo.rename(m.id, name);
   }
 
   Future<void> _showKey(BuildContext context, WidgetRef ref, SshMachine m) async {
@@ -617,6 +616,9 @@ class _MachineRow extends ConsumerWidget {
   }
 
   Future<void> _remove(BuildContext context, WidgetRef ref, SshMachine m) async {
+    // Removing the machine disposes this row and its ref: take both first.
+    final repo = ref.read(sshMachinesProvider.notifier);
+    final status = ref.read(machineStatusProvider.notifier);
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -637,8 +639,8 @@ class _MachineRow extends ConsumerWidget {
       ),
     );
     if (ok ?? false) {
-      await ref.read(sshMachinesProvider.notifier).remove(m.id);
-      ref.read(machineStatusProvider.notifier).forget(m.id);
+      await repo.remove(m.id);
+      status.forget(m.id);
     }
   }
 }
@@ -738,6 +740,7 @@ Future<void> reviewHostKey(
   SshMachine m,
 ) async {
   final session = ref.read(sshGatewayProvider).open(m);
+  final status = ref.read(machineStatusProvider.notifier);
   final changed = Completer<HostKeyChanged?>();
   final sub = session.state.listen((s) {
     if (changed.isCompleted) return;
@@ -807,6 +810,6 @@ Future<void> reviewHostKey(
   } finally {
     await sub.cancel();
     await session.close();
-    unawaited(ref.read(machineStatusProvider.notifier).refresh());
+    unawaited(status.refresh());
   }
 }

@@ -189,7 +189,12 @@ void main() {
       await _connect(tester);
       expect(find.text('Trust this machine?'), findsOneWidget);
       expect(find.textContaining('4mQe0rT7xLq9ZkP2'), findsOneWidget);
-      await tester.tap(find.text('Cancel'));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(FirstHostKeySheet),
+          matching: find.text('Cancel'),
+        ),
+      );
       await _frames(tester);
       expect(c.read(sshMachinesProvider), isEmpty);
       expect(find.text('Host key not trusted'), findsOneWidget);
