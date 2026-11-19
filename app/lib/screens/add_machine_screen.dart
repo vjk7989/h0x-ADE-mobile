@@ -14,6 +14,7 @@ import '../data/ssh_machines_repo.dart';
 import '../theme/themes.dart';
 import '../theme/type.dart';
 import '../widgets/hx.dart';
+import '../widgets/hx_icons.dart';
 import '../widgets/machine_sheets.dart';
 
 /// What went wrong and what to do, for a failed first connect.
@@ -260,6 +261,68 @@ class _AddMachineScreenState extends ConsumerState<AddMachineScreen> {
   Widget build(BuildContext context) {
     final c = context.hx.colors;
     final key = ref.watch(phoneKeyProvider);
+    final wide = MediaQuery.sizeOf(context).width >= 700;
+    final form = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_failure != null) ...[
+          HxBanner(title: _failure!.title, message: _failure!.hint),
+          const SizedBox(height: 12),
+        ],
+        _Field(
+          label: 'Host, IP or Tailscale name',
+          hint: 'devbox.tail1234.ts.net',
+          controller: _host,
+          focus: _hostFocus,
+          error: _hostError,
+          keyboard: TextInputType.url,
+        ),
+        const SizedBox(height: 12),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 2,
+              child: _Field(
+                label: 'User',
+                hint: 'dev',
+                controller: _user,
+                focus: _userFocus,
+                error: _userError,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _Field(
+                label: 'Port',
+                hint: '22',
+                controller: _port,
+                focus: _portFocus,
+                error: _portError,
+                keyboard: TextInputType.number,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _Field(label: 'Name (optional)', hint: 'devbox', controller: _name),
+        const SizedBox(height: 12),
+        _TailscaleSwitch(
+          value: _tailscale,
+          onChanged: _connecting ? null : (v) => setState(() => _tailscale = v),
+        ),
+      ],
+    );
+    final keyPane = _tailscale
+        ? Text(
+            'Your tailnet signs this phone in; no key is offered.',
+            style: HxType.caption.copyWith(color: c.muted),
+          )
+        : _KeyCard(
+            key: const ValueKey('key-card'),
+            info: key,
+            onCopy: (t, w) => _copy(t, w),
+          );
     return Scaffold(
       backgroundColor: c.screen,
       body: SafeArea(
@@ -297,92 +360,64 @@ class _AddMachineScreenState extends ConsumerState<AddMachineScreen> {
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 560),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (_failure != null) ...[
-                          HxBanner(
-                            title: _failure!.title,
-                            message: _failure!.hint,
+                child: wide
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.topRight,
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 400),
+                                child: form,
+                              ),
+                            ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(width: 24),
+                          Expanded(
+                            child: Align(
+                              alignment: Alignment.topLeft,
+                              child: ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 480),
+                                child: keyPane,
+                              ),
+                            ),
+                          ),
                         ],
-                        _Field(
-                          label: 'Host, IP or Tailscale name',
-                          hint: 'devbox.tail1234.ts.net',
-                          controller: _host,
-                          focus: _hostFocus,
-                          error: _hostError,
-                          keyboard: TextInputType.url,
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              flex: 2,
-                              child: _Field(
-                                label: 'User',
-                                hint: 'dev',
-                                controller: _user,
-                                focus: _userFocus,
-                                error: _userError,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _Field(
-                                label: 'Port',
-                                hint: '22',
-                                controller: _port,
-                                focus: _portFocus,
-                                error: _portError,
-                                keyboard: TextInputType.number,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        _Field(
-                          label: 'Name (optional)',
-                          hint: 'devbox',
-                          controller: _name,
-                        ),
-                        const SizedBox(height: 12),
-                        _TailscaleSwitch(
-                          value: _tailscale,
-                          onChanged: _connecting
-                              ? null
-                              : (v) => setState(() => _tailscale = v),
-                        ),
-                        const SizedBox(height: 12),
-                        if (_tailscale)
-                          Text(
-                            'Your tailnet signs this phone in; no key is '
-                            'offered.',
-                            style: HxType.caption.copyWith(color: c.muted),
-                          )
-                        else
-                          _KeyCard(
-                            key: const ValueKey('key-card'),
-                            info: key,
-                            onCopy: (t, w) => _copy(t, w),
+                      )
+                    : Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 560),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              form,
+                              const SizedBox(height: 12),
+                              keyPane,
+                            ],
                           ),
-                        const SizedBox(height: 20),
-                        if (_connecting)
-                          _ConnectingRow(onCancel: _cancel)
-                        else
-                          HxButton(
-                            label: 'Connect',
-                            kind: HxButtonKind.primary,
-                            onPressed: _connect,
-                          ),
-                      ],
-                    ),
-                  ),
+                        ),
+                      ),
+              ),
+            ),
+            // Connect is pinned in a bar that rides above the keyboard.
+            Container(
+              constraints: const BoxConstraints(minHeight: 88),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+              decoration: BoxDecoration(
+                color: c.screen,
+                border: Border(top: BorderSide(color: c.hairline)),
+              ),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: _connecting
+                      ? _ConnectingRow(onCancel: _cancel)
+                      : HxButton(
+                          label: 'Connect',
+                          kind: HxButtonKind.primary,
+                          onPressed: _connect,
+                        ),
                 ),
               ),
             ),
@@ -422,7 +457,10 @@ class _Field extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(bottom: 6),
-          child: Text(label, style: HxType.bodySm.copyWith(color: c.muted)),
+          child: Text(
+            label,
+            style: HxType.weight(HxType.bodySm, 500).copyWith(color: c.foreground),
+          ),
         ),
         Semantics(
           label: label,
@@ -516,9 +554,18 @@ class _KeyCard extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'THIS PHONE\'S KEY',
-                style: HxType.labelXs.copyWith(color: c.muted),
+              Row(
+                children: [
+                  HxIcon('key', size: 20, color: c.accent, duo: true),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This phone\'s public key',
+                      style: HxType.weight(HxType.bodyLg, 600),
+                    ),
+                  ),
+                  HxTag('ed25519', color: c.ok),
+                ],
               ),
               const SizedBox(height: 8),
               if (k.addAgain) ...[

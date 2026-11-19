@@ -223,7 +223,7 @@ void main() {
       await _open(tester, fake, t: 't3');
       expect(find.text('Approve'), findsNothing);
       expect(find.text('Deny'), findsNothing);
-      expect(find.textContaining('Reply in the box below'), findsOneWidget);
+      expect(find.textContaining('reply in the box below'), findsOneWidget);
       await _close(tester);
     });
 

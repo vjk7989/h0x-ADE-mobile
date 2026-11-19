@@ -13,6 +13,8 @@ import '../theme/type.dart';
 import '../widgets/app_shell.dart';
 import '../widgets/hx.dart';
 import '../widgets/hx_bits.dart';
+import '../widgets/hx_icons.dart';
+import 'agent_screen.dart';
 
 /// Every agent on every machine, grouped by who needs whom (design: Inbox).
 class InboxScreen extends ConsumerStatefulWidget {
@@ -75,7 +77,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
             children: [
               SizedBox(width: 360, child: list),
               VerticalDivider(width: 1, color: context.hx.colors.hairline),
-              Expanded(child: _detail(context)),
+              Expanded(child: _detail(context, _selected ?? _firstOf(state))),
             ],
           );
         },
@@ -83,18 +85,35 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     );
   }
 
-  Widget _detail(BuildContext context) {
+  /// The agent to show when none was picked: the first one that needs the
+  /// person, else the first one.
+  InboxItem? _firstOf(InboxState state) {
+    final needs = state.group(AgentGroup.needsYou, '');
+    if (needs.isNotEmpty) return needs.first;
+    final all = state.items('');
+    return all.isEmpty ? null : all.first;
+  }
+
+  Widget _detail(BuildContext context, InboxItem? s) {
     final c = context.hx.colors;
-    final s = _selected;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text(
-          s == null ? 'Select an agent' : '${s.session.agent} in ${shortFolder(s.session.folder)}',
-          style: HxType.body.copyWith(color: c.muted),
-          textAlign: TextAlign.center,
+    if (s == null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'No agents yet',
+            style: HxType.body.copyWith(color: c.muted),
+            textAlign: TextAlign.center,
+          ),
         ),
-      ),
+      );
+    }
+    // The agent opens beside the list (inbox board 03).
+    return AgentScreen(
+      key: ValueKey('${s.machine.id}/${s.session.terminal}'),
+      machineId: s.machine.id,
+      terminal: s.session.terminal,
+      embedded: true,
     );
   }
 
@@ -173,7 +192,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
           dot: groupColor(c, g),
         ));
         for (final i in items) {
-          children.add(_AgentRow(
+          children.add(AgentRow(
             item: i,
             onOpen: () => _open(i),
             onAnswer: (approve) => _answer(i, approve),
@@ -376,14 +395,21 @@ class _SkeletonRow extends StatelessWidget {
   }
 }
 
-class _AgentRow extends StatelessWidget {
-  const _AgentRow({
+/// One agent of the inbox. [compact] drops the inline Approve / Deny and
+/// tightens the row to 72 dp (the agent screen's sidebar reuses it).
+class AgentRow extends StatelessWidget {
+  const AgentRow({
+    super.key,
     required this.item,
     required this.onOpen,
     required this.onAnswer,
     required this.onPin,
+    this.compact = false,
+    this.selected = false,
   });
 
+  final bool compact;
+  final bool selected;
   final InboxItem item;
   final VoidCallback onOpen;
   final void Function(bool approve) onAnswer;
@@ -400,7 +426,8 @@ class _AgentRow extends StatelessWidget {
     final label = '${s.agent} in $where on ${item.machine.name}, $word'
         '${s.message.isEmpty ? '' : ': ${s.message}'}'
         '${item.unread ? ', unread' : ''}${item.pinned ? ', pinned' : ''}';
-    final canAnswer = !item.offline &&
+    final canAnswer = !compact &&
+        !item.offline &&
         g == AgentGroup.needsYou &&
         s.status == 'blocked' &&
         s.blockedKind == 'permission';
@@ -409,14 +436,15 @@ class _AgentRow extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
       child: Container(
         decoration: BoxDecoration(
-          color: c.card,
+          color: selected ? c.selected : c.card,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: c.hairline),
+          border: Border.all(color: selected ? c.accent : c.hairline),
         ),
         child: Column(
           children: [
             Semantics(
               button: true,
+              selected: selected,
               label: label,
               excludeSemantics: true,
               onTap: onOpen,
@@ -426,7 +454,7 @@ class _AgentRow extends StatelessWidget {
                 onTap: onOpen,
                 onLongPress: onPin,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(minHeight: 84),
+                  constraints: BoxConstraints(minHeight: compact ? 72 : 84),
                   child: Padding(
                     padding: const EdgeInsets.all(12),
                     child: Row(
@@ -465,11 +493,11 @@ class _AgentRow extends StatelessWidget {
                         if (item.pinned)
                           Padding(
                             padding: const EdgeInsets.only(left: 4),
-                            child: Icon(Icons.push_pin, size: 16, color: c.muted),
+                            child: HxIcon('pin', size: 14, color: c.muted),
                           ),
                         if (item.unread)
                           Padding(
-                            padding: const EdgeInsets.only(left: 6, top: 4),
+                            padding: const EdgeInsets.only(left: 10, top: 4),
                             child: Container(
                               width: 8,
                               height: 8,

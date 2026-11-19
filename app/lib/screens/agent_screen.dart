@@ -16,7 +16,12 @@ import '../theme/terminal_theme.dart';
 import '../theme/theme_controller.dart';
 import '../theme/themes.dart';
 import '../theme/type.dart';
+import '../state/inbox.dart';
+import '../widgets/app_shell.dart';
 import '../widgets/hx.dart';
+import '../widgets/hx_bits.dart';
+import '../widgets/hx_icons.dart';
+import 'inbox_screen.dart';
 import '../widgets/key_bar.dart';
 
 const kTermMinSize = 9.0;
@@ -34,11 +39,15 @@ class AgentScreen extends ConsumerStatefulWidget {
     required this.machineId,
     required this.terminal,
     this.connection,
+    this.embedded = false,
   });
 
   final String machineId;
   final String terminal;
   final MachineConnection? connection;
+
+  /// Shown beside the inbox list (no back button, no sidebar of its own).
+  final bool embedded;
 
   @override
   ConsumerState<AgentScreen> createState() => _AgentScreenState();
@@ -243,17 +252,16 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
     final blocked = session != null &&
         session.live &&
         session.status == 'blocked';
-    return Scaffold(
-      backgroundColor: c.screen,
-      body: SafeArea(
-        child: Column(
+    final wide = MediaQuery.sizeOf(context).width >= kRailBreakpoint;
+    final main = Column(
           children: [
             _Header(
               name: name,
               session: session,
               machine: a.conn.machine.name,
-              onBack: () =>
-                  context.canPop() ? context.pop() : context.go('/inbox'),
+              onBack: widget.embedded
+                  ? null
+                  : () => context.canPop() ? context.pop() : context.go('/inbox'),
               onInterrupt: phase == AgentPhase.finished ? null : _interrupt,
               onCopyAll: () => _copy(a.terminal.buffer.getText(), 'Output'),
               onShareAll: () => SharePlus.instance.share(
@@ -312,8 +320,22 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
               ),
             ],
           ],
-        ),
-      ),
+        );
+    final body = !wide || widget.embedded
+        ? main
+        : Row(
+            children: [
+              SizedBox(
+                width: 300,
+                child: _Sidebar(machineId: widget.machineId, terminal: widget.terminal),
+              ),
+              VerticalDivider(width: 1, color: c.hairline),
+              Expanded(child: main),
+            ],
+          );
+    return Scaffold(
+      backgroundColor: c.screen,
+      body: SafeArea(child: body),
     );
   }
 
@@ -461,7 +483,9 @@ class _Header extends StatelessWidget {
   final String name;
   final Session? session;
   final String machine;
-  final VoidCallback onBack;
+
+  /// Null: no back button (embedded beside the inbox).
+  final VoidCallback? onBack;
   final VoidCallback? onInterrupt;
   final VoidCallback onCopyAll;
   final VoidCallback onShareAll;
@@ -483,31 +507,93 @@ class _Header extends StatelessWidget {
       null => ('', c.muted),
     };
     final folder = s?.folder ?? '';
+    final stacked = MediaQuery.textScalerOf(context).scale(14) / 14 >= 1.5;
+    final back = onBack == null
+        ? const SizedBox(width: 12)
+        : Padding(
+            padding: const EdgeInsets.only(left: 4),
+            child: SizedBox(
+              width: 48,
+              height: 48,
+              child: IconButton(
+                tooltip: 'Back',
+                icon: const Icon(Icons.arrow_back),
+                onPressed: onBack,
+              ),
+            ),
+          );
+    final interrupt = SizedBox(
+      width: 48,
+      height: 48,
+      child: IconButton(
+        tooltip: 'Interrupt $name',
+        icon: Icon(Icons.stop_circle_outlined, color: c.blocked),
+        onPressed: onInterrupt,
+      ),
+    );
+    final more = PopupMenuButton<String>(
+      tooltip: 'More options',
+      onSelected: (v) => v == 'copy' ? onCopyAll() : onShareAll(),
+      itemBuilder: (_) => const [
+        PopupMenuItem(value: 'copy', child: Text('Copy all')),
+        PopupMenuItem(value: 'share', child: Text('Share output')),
+      ],
+    );
+    final where = folder.isEmpty ? machine : '$folder · $machine';
+
+    if (stacked) {
+      // From 1.5x text: back, name, interrupt, more; then the folder; then
+      // the state tag (agent board 11).
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              back,
+              Expanded(
+                child: Semantics(
+                  header: true,
+                  child: Text(name, style: HxType.title),
+                ),
+              ),
+              interrupt,
+              more,
+              const SizedBox(width: 4),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+            child: Text(where, style: HxType.mono.copyWith(color: c.muted)),
+          ),
+          if (word.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+              child: HxTag(word, color: tone),
+            ),
+        ],
+      );
+    }
+
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 64),
       child: Row(
         children: [
-          const SizedBox(width: 4),
-          SizedBox(
-            width: 48,
-            height: 48,
-            child: IconButton(
-              tooltip: 'Back',
-              icon: const Icon(Icons.arrow_back),
-              onPressed: onBack,
-            ),
-          ),
+          back,
           Container(
             width: 36,
             height: 36,
             alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: c.well,
+              color: tone.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: tone.withValues(alpha: 0.35)),
             ),
             child: Text(
-              name.length >= 2 ? name.substring(0, 2) : name,
-              style: HxType.mono.copyWith(color: c.accent),
+              initials(name),
+              style: HxType.weight(HxType.mono, 600).copyWith(
+                fontSize: 12.5,
+                color: c.foreground,
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -515,44 +601,99 @@ class _Header extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Wrap(
-                  spacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+                Row(
                   children: [
-                    Semantics(
-                      header: true,
-                      child: Text(name, style: HxType.heading),
+                    Flexible(
+                      child: Semantics(
+                        header: true,
+                        child: Text(
+                          name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: HxType.weight(HxType.heading, 600).copyWith(fontSize: 17),
+                        ),
+                      ),
                     ),
-                    if (word.isNotEmpty) HxTag(word, color: tone),
+                    if (word.isNotEmpty) ...[
+                      const SizedBox(width: 8),
+                      HxTag(word, color: tone),
+                    ],
                   ],
                 ),
                 Text(
-                  folder.isEmpty ? machine : '$folder · $machine',
+                  where,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: HxType.mono.copyWith(color: c.muted, fontSize: 11.5),
                 ),
               ],
             ),
           ),
-          SizedBox(
-            width: 48,
-            height: 48,
-            child: IconButton(
-              tooltip: 'Interrupt $name',
-              icon: Icon(Icons.stop_circle_outlined, color: c.blocked),
-              onPressed: onInterrupt,
-            ),
-          ),
-          PopupMenuButton<String>(
-            tooltip: 'More options',
-            onSelected: (v) => v == 'copy' ? onCopyAll() : onShareAll(),
-            itemBuilder: (_) => const [
-              PopupMenuItem(value: 'copy', child: Text('Copy all')),
-              PopupMenuItem(value: 'share', child: Text('Share output')),
-            ],
-          ),
+          interrupt,
+          more,
           const SizedBox(width: 4),
         ],
       ),
+    );
+  }
+}
+
+/// The inbox, compact, beside the terminal on a tablet (agent board 03). It
+/// reuses the inbox's own row.
+class _Sidebar extends ConsumerWidget {
+  const _Sidebar({required this.machineId, required this.terminal});
+
+  final String machineId;
+  final String terminal;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hx.colors;
+    final controller = ref.watch(inboxProvider);
+    return ValueListenableBuilder<InboxState>(
+      valueListenable: controller.value,
+      builder: (context, state, _) {
+        final items = state.items('');
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Semantics(
+                header: true,
+                child: Text('Inbox', style: HxType.title),
+              ),
+            ),
+            Expanded(
+              child: items.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        'No agents yet',
+                        style: HxType.body.copyWith(color: c.muted),
+                      ),
+                    )
+                  : ListView(
+                      children: [
+                        for (final i in items)
+                          AgentRow(
+                            item: i,
+                            compact: true,
+                            selected: i.machine.id == machineId &&
+                                i.session.terminal == terminal,
+                            onOpen: () {
+                              controller.markRead(i);
+                              context.go('/agent/${i.machine.id}/${i.session.terminal}');
+                            },
+                            onAnswer: (_) {},
+                            onPin: () => controller.togglePin(i.key),
+                          ),
+                      ],
+                    ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -644,9 +785,22 @@ class _PromptCard extends StatelessWidget {
             container: true,
             child: Row(
               children: [
-                Icon(Icons.notifications_none, size: 20, color: c.working),
+                HxIcon(permission ? 'bell' : 'info', size: 20, color: c.working),
                 const SizedBox(width: 8),
-                Expanded(child: Text(title, style: HxType.bodyLg)),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: HxType.bodyLg),
+                      Text(
+                        permission
+                            ? 'permission · ${session.agent}'
+                            : 'question · reply in the box below',
+                        style: HxType.mono.copyWith(color: c.muted),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
           ),
@@ -666,12 +820,6 @@ class _PromptCard extends StatelessWidget {
                   child: _ApproveButton(onPressed: onApprove),
                 ),
               ],
-            ),
-          ] else ...[
-            const SizedBox(height: 4),
-            Text(
-              '${session.agent} is asking. Reply in the box below.',
-              style: HxType.bodySm,
             ),
           ],
         ],
