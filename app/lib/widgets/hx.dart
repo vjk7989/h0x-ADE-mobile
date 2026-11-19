@@ -298,7 +298,21 @@ class HxBanner extends StatelessWidget {
       HxBannerKind.offline => 'wifi-off',
       HxBannerKind.warn => 'triangle',
     };
-    return Semantics(
+    // It grows in with a fade and an 8 dp slide down (200 ms, emphasized
+    // decel); with reduced motion it is simply there.
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: HxMotion.d(context, HxMotion.stateChange, fade: true),
+      curve: HxMotion.emphasizedDecel,
+      builder: (context, t, child) => Opacity(
+        opacity: t.clamp(0.0, 1.0),
+        child: Align(
+          heightFactor: t.clamp(0.0, 1.0),
+          alignment: Alignment.topCenter,
+          child: Transform.translate(offset: Offset(0, -8 * (1 - t)), child: child),
+        ),
+      ),
+      child: Semantics(
       liveRegion: true,
       container: true,
       label: '$title. $message',
@@ -328,9 +342,25 @@ class HxBanner extends StatelessWidget {
           ],
         ),
       ),
+      ),
     );
   }
 }
+
+/// A snackbar that comes in over 200 ms (emphasized decel) and leaves over
+/// 160 ms (emphasized accel).
+ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showHxSnack(
+  BuildContext context,
+  SnackBar bar,
+) => ScaffoldMessenger.of(context).showSnackBar(
+  bar,
+  snackBarAnimationStyle: AnimationStyle(
+    duration: HxMotion.d(context, HxMotion.stateChange, fade: true),
+    reverseDuration: HxMotion.d(context, const Duration(milliseconds: 160), fade: true),
+    curve: HxMotion.emphasizedDecel,
+    reverseCurve: HxMotion.emphasizedAccel,
+  ),
+);
 
 /// `[word]` as the desktop's CLI tags: brackets in `dim`, word in [color].
 class HxTag extends StatelessWidget {

@@ -6,6 +6,7 @@ import 'screens/unlock_screen.dart';
 import 'theme/theme_controller.dart';
 import 'theme/themes.dart';
 import 'widgets/intro.dart';
+import 'widgets/theme_crossfade.dart';
 
 class HyperOxApp extends ConsumerWidget {
   const HyperOxApp({super.key});
@@ -18,10 +19,13 @@ class HyperOxApp extends ConsumerWidget {
       theme: themeData(themeById(choice.light)),
       darkTheme: themeData(themeById(choice.dark)),
       themeMode: choice.themeMode,
-      builder: (context, child) =>
-          SplashThemeSync(
-            child: IntroGate(child: AppLockScope(child: child!)),
-          ),
+      // The theme switch is the cross-fade below, not Material's own tween.
+      themeAnimationDuration: Duration.zero,
+      builder: (context, child) => ThemeCrossFade(
+        child: SplashThemeSync(
+          child: IntroGate(child: AppLockScope(child: child!)),
+        ),
+      ),
       routerConfig: ref.watch(routerProvider),
     );
   }
