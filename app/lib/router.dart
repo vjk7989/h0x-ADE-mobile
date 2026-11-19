@@ -59,7 +59,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/agent/:machine/:terminal',
-        builder: (_, _) => const AgentScreen(),
+        builder: (_, state) => AgentScreen(
+          machineId: state.pathParameters['machine']!,
+          terminal: state.pathParameters['terminal']!,
+        ),
       ),
       ShellRoute(
         builder: (context, state, child) =>

@@ -27,6 +27,7 @@ Future<void> pumpGolden(
   double textScale = 1.0,
   String? themeId,
   double dpr = 1.0,
+  bool settle = true,
   Map<String, Object> stored = const {},
   List<Override> overrides = const [],
 }) async {
@@ -59,5 +60,12 @@ Future<void> pumpGolden(
       ),
     ),
   );
-  await tester.pumpAndSettle();
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    // A live terminal animates for ever (cursor): frames by hand.
+    for (var i = 0; i < 6; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
 }

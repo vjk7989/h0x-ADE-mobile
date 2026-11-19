@@ -108,6 +108,9 @@ class FakeGateway implements SshGateway {
   }
 
   @override
+  MachineConnection? connect(SshMachine machine) => null;
+
+  @override
   Future<String?> knownFingerprint(SshMachine machine) async =>
       known[machine.host];
 }

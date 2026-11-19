@@ -19,6 +19,9 @@ class StubSshGateway implements SshGateway {
   SshSession open(SshMachine machine) => _StubSession();
 
   @override
+  MachineConnection? connect(SshMachine machine) => null;
+
+  @override
   Future<String?> knownFingerprint(SshMachine machine) async => null;
 }
 

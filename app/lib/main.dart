@@ -5,6 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app.dart';
 import 'data/ssh_gateway.dart';
 import 'data/ssh_gateway_stub.dart';
+import 'state/connections.dart';
+import 'state/live_connections.dart';
 import 'theme/theme_controller.dart';
 
 // INTERIM: StubSshGateway until lib/conn/ssh compiles; then RealSshGateway
@@ -17,6 +19,7 @@ Future<void> main() async {
       overrides: [
         sharedPrefsProvider.overrideWithValue(prefs),
         sshGatewayProvider.overrideWithValue(const StubSshGateway()),
+        connectionsProvider.overrideWith((ref) => ref.watch(liveConnectionsProvider)),
       ],
       child: const HyperOxApp(),
     ),
