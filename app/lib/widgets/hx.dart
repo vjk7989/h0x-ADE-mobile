@@ -96,7 +96,7 @@ class _HxButtonState extends State<HxButton> {
                     if (leading != null || lucide != null || icon != null) ...[
                       leading ??
                           (lucide != null
-                              ? HxIcon(lucide!, size: 20, color: fg)
+                              ? HxIcon(lucide, size: 20, color: fg)
                               : Icon(icon, size: 20, color: fg)),
                       const SizedBox(width: 10),
                     ],
