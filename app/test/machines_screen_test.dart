@@ -245,7 +245,8 @@ void main() {
       final gw = FakeGateway(byHost: byHost, fallback: FakeBehavior());
       await pumpGolden(
         tester,
-        const MachinesScreen(),
+        // The app puts this screen in the navigation's Scaffold.
+        const Scaffold(body: MachinesScreen()),
         brightness: brightness,
         textScale: scale,
         frame: frame,

@@ -80,7 +80,10 @@ List<String> textContrastFailures(WidgetTester tester) {
       if (span is TextSpan) {
         final text = span.text ?? '';
         final color = style.color;
-        if (text.trim().isNotEmpty && color != null) {
+        // The dim brackets of a CLI tag are decorative; the word between
+        // them carries the meaning (design/tokens.md rule 1).
+        final decorative = text == '[' || text == ']';
+        if (text.trim().isNotEmpty && color != null && !decorative) {
           final fg = Color.alphaBlend(color, bg);
           final size = style.fontSize ?? 14;
           final bold = (style.fontWeight?.value ?? 400) >= 700;
