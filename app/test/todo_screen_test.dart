@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hyperox/conn/machine_connection.dart';
 import 'package:hyperox/screens/todo_screen.dart';
 import 'package:hyperox/state/connections.dart';
 import 'package:hyperox/state/inbox.dart';
@@ -60,7 +61,7 @@ class _Slow extends FakeConnection {
 }
 
 List<Override> overrides(List<FakeConnection> conns) => [
-      connectionsProvider.overrideWithValue(conns),
+      connectionsProvider.overrideWithValue(<MachineConnection>[...conns]),
       inboxPollProvider.overrideWithValue(null),
     ];
 
@@ -101,9 +102,7 @@ void main() {
     expect(find.text('Fix the login timeout'), findsOneWidget);
   });
 
-  testWidgets('tapping the circle ticks the task in the desktop file', (t) async {
-    final sem = t.ensureSemantics();
-    addTearDown(sem.dispose);
+  testWithSemantics('tapping the circle ticks the task in the desktop file', (t) async {
     final c = machine();
     await show(t, [c]);
     await t.tap(find.bySemanticsLabel('Mark done: Update the app icon'));
@@ -112,9 +111,7 @@ void main() {
     expect(find.text('3 of 7 done'), findsOneWidget);
   });
 
-  testWidgets('expanding shows steps; ticking a step is written', (t) async {
-    final sem = t.ensureSemantics();
-    addTearDown(sem.dispose);
+  testWithSemantics('expanding shows steps; ticking a step is written', (t) async {
     final c = machine();
     await show(t, [c]);
     await t.tap(find.bySemanticsLabel('Show steps of Write release notes'));
@@ -127,9 +124,7 @@ void main() {
     expect(find.text('2/3'), findsOneWidget);
   });
 
-  testWidgets('Add step writes a new step under the task', (t) async {
-    final sem = t.ensureSemantics();
-    addTearDown(sem.dispose);
+  testWithSemantics('Add step writes a new step under the task', (t) async {
     final c = machine();
     await show(t, [c]);
     await t.tap(find.bySemanticsLabel('Show steps of Update the app icon'));
@@ -210,9 +205,7 @@ void main() {
     expect(text.indexOf('Fix the login timeout'), greaterThan(text.indexOf('Reply to beta testers')));
   });
 
-  testWidgets('a change on the computer first: told, reloaded, nothing overwritten', (t) async {
-    final sem = t.ensureSemantics();
-    addTearDown(sem.dispose);
+  testWithSemantics('a change on the computer first: told, reloaded, nothing overwritten', (t) async {
     final c = machine();
     await show(t, [c]);
     c.files[release] = '$releaseText- [ ] Added on the desktop\n';
@@ -282,7 +275,7 @@ void main() {
     expect(find.text('Write release notes'), findsOneWidget);
     expect(find.byType(Dismissible), findsNothing, reason: 'no swipe to delete while read-only');
     await expectGolden(find.byType(MaterialApp), 'todo_phone_light_offline');
-    await expectAccessible(t);
+    await expectAccessibleCrisp(t);
   });
 
   testWidgets('a list over 1 MB is shown read-only with a reason', (t) async {
@@ -293,9 +286,7 @@ void main() {
     expect(find.byType(Dismissible), findsNothing);
   });
 
-  testWidgets('which computer: the picker appears with two machines and switches', (t) async {
-    final sem = t.ensureSemantics();
-    addTearDown(sem.dispose);
+  testWithSemantics('which computer: the picker appears with two machines and switches', (t) async {
     final other = machine(id: 'devbox', name: 'devbox');
     other.files['$home/todo/lists.md'] = '- [Garden](garden.md)\n';
     other.files['$home/todo/garden.md'] = '# Garden\n- [ ] Prune\n';
@@ -309,9 +300,7 @@ void main() {
     expect(find.text('Prune'), findsOneWidget);
   });
 
-  testWidgets('one machine: no computer picker', (t) async {
-    final sem = t.ensureSemantics();
-    addTearDown(sem.dispose);
+  testWithSemantics('one machine: no computer picker', (t) async {
     await show(t, [machine()]);
     expect(find.bySemanticsLabel('Computer: studio-pc'), findsNothing);
   });
@@ -333,9 +322,7 @@ void main() {
     expect(c.files[lists], '- [First](first.md)\n');
   });
 
-  testWidgets('loading shows skeleton cards', (t) async {
-    final sem = t.ensureSemantics();
-    addTearDown(sem.dispose);
+  testWithSemantics('loading shows skeleton cards', (t) async {
     final c = _Slow();
     await pumpGolden(t, TodoScreen(onNavigate: (_) {}), overrides: overrides([c]));
     await t.pump();
@@ -347,15 +334,13 @@ void main() {
   testWidgets('golden: phone light and dark, accessible', (t) async {
     await show(t, [machine()]);
     await expectGolden(find.byType(MaterialApp), 'todo_phone_light');
-    await expectAccessible(t);
+    await expectAccessibleCrisp(t);
     await show(t, [machine()], b: Brightness.dark);
     await expectGolden(find.byType(MaterialApp), 'todo_phone_dark');
-    await expectAccessible(t);
+    await expectAccessibleCrisp(t);
   });
 
-  testWidgets('golden: steps open and Completed open', (t) async {
-    final sem = t.ensureSemantics();
-    addTearDown(sem.dispose);
+  testWithSemantics('golden: steps open and Completed open', (t) async {
     await show(t, [machine()]);
     await t.tap(find.bySemanticsLabel('Show steps of Write release notes'));
     await t.tap(find.text('Completed'));
@@ -366,13 +351,13 @@ void main() {
   testWidgets('golden: text 200 percent, accessible', (t) async {
     await show(t, [machine()], scale: 2);
     await expectGolden(find.byType(MaterialApp), 'todo_phone_light_200');
-    await expectAccessible(t);
+    await expectAccessibleCrisp(t);
   });
 
   testWidgets('golden: tablet lists and tasks, accessible', (t) async {
     await show(t, [machine()], f: Frame.tablet);
     expect(find.text('LISTS'), findsOneWidget);
     await expectGolden(find.byType(MaterialApp), 'todo_tablet_light');
-    await expectAccessible(t);
+    await expectAccessibleCrisp(t);
   });
 }

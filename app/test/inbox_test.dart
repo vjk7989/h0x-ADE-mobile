@@ -56,7 +56,7 @@ Future<void> pump() async {
 }
 
 List<Override> overrides(List<FakeConnection> conns) => [
-      connectionsProvider.overrideWithValue(conns),
+      connectionsProvider.overrideWithValue(<MachineConnection>[...conns]),
       inboxPollProvider.overrideWithValue(null),
     ];
 
@@ -211,9 +211,7 @@ void main() {
       await t.pumpAndSettle();
     }
 
-    testWidgets('groups, rows, tags and the needs-you badge', (t) async {
-      final sem = t.ensureSemantics();
-      addTearDown(sem.dispose);
+    testWithSemantics('groups, rows, tags and the needs-you badge', (t) async {
       await show(t, [studio(), devbox()]);
       expect(find.text('NEEDS YOU'), findsOneWidget);
       expect(find.text('WORKING'), findsOneWidget);
@@ -276,9 +274,7 @@ void main() {
       expect(went, isTrue);
     });
 
-    testWidgets('all offline: banner, last known rows marked offline', (t) async {
-      final sem = t.ensureSemantics();
-      addTearDown(sem.dispose);
+    testWithSemantics('all offline: banner, last known rows marked offline', (t) async {
       final a = studio();
       await show(t, [a]);
       a.setState(const Failed('lost'));
@@ -303,9 +299,7 @@ void main() {
       expect(find.textContaining('Approve on'), findsNothing);
     });
 
-    testWidgets('loading shows skeleton rows', (t) async {
-      final sem = t.ensureSemantics();
-      addTearDown(sem.dispose);
+    testWithSemantics('loading shows skeleton rows', (t) async {
       final a = studio()..setState(const Connecting());
       await pumpGolden(t, InboxScreen(onNavigate: (_) {}), overrides: overrides([a]));
       expect(find.bySemanticsLabel('Loading agents'), findsWidgets);
@@ -315,24 +309,24 @@ void main() {
     testWidgets('golden: phone light and dark, accessible', (t) async {
       await show(t, [studio(), devbox()]);
       await expectGolden(find.byType(MaterialApp), 'inbox_phone_light');
-      await expectAccessible(t);
+      await expectAccessibleCrisp(t);
       await show(t, [studio(), devbox()], b: Brightness.dark);
       await expectGolden(find.byType(MaterialApp), 'inbox_phone_dark');
-      await expectAccessible(t);
+      await expectAccessibleCrisp(t);
     });
 
     testWidgets('golden: text 200 percent stacks Approve and Deny, accessible', (t) async {
       await show(t, [studio()], scale: 2);
       expect(find.text('Approve'), findsOneWidget);
       await expectGolden(find.byType(MaterialApp), 'inbox_phone_light_200');
-      await expectAccessible(t);
+      await expectAccessibleCrisp(t);
     });
 
     testWidgets('golden: tablet shows the rail and a list beside a pane', (t) async {
       await show(t, [studio(), devbox()], f: Frame.tablet);
       expect(find.text('Select an agent'), findsOneWidget);
       await expectGolden(find.byType(MaterialApp), 'inbox_tablet_light');
-      await expectAccessible(t);
+      await expectAccessibleCrisp(t);
     });
   });
 }

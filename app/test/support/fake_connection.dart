@@ -181,8 +181,9 @@ class FakeConnection implements MachineConnection {
       close: () async {
         _views.remove(terminal);
         _sizes.remove(terminal);
-        await bytes.close();
-        await sizes.close();
+        // not awaited: close() of a stream nobody listens to never completes
+        unawaited(bytes.close());
+        unawaited(sizes.close());
       },
     );
   }

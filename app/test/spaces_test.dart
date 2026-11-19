@@ -7,7 +7,7 @@ import 'package:hyperox/screens/spaces_screen.dart';
 import 'package:hyperox/state/connections.dart';
 import 'package:hyperox/state/inbox.dart';
 import 'package:hyperox/state/spaces.dart';
-import 'package:hyperox/widgets/app_shell.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'support/a11y.dart';
 import 'support/fake_connection.dart';
@@ -53,7 +53,7 @@ FakeConnection studio({SpacesView? view}) {
 }
 
 List<Override> overrides(List<FakeConnection> conns) => [
-      connectionsProvider.overrideWithValue(conns),
+      connectionsProvider.overrideWithValue(<MachineConnection>[...conns]),
       inboxPollProvider.overrideWithValue(null),
     ];
 
@@ -162,9 +162,7 @@ void main() {
     expect(find.textContaining('disk on fire'), findsOneWidget);
   });
 
-  testWidgets('loading shows skeleton cards', (t) async {
-    final sem = t.ensureSemantics();
-    addTearDown(sem.dispose);
+  testWithSemantics('loading shows skeleton cards', (t) async {
     final c = _Slow();
     await pumpGolden(t, SpacesScreen(onNavigate: (_) {}), overrides: overrides([c]));
     await t.pump();
@@ -217,23 +215,23 @@ void main() {
   testWidgets('golden: phone light and dark, accessible', (t) async {
     await show(t, [studio()]);
     await expectGolden(find.byType(MaterialApp), 'spaces_phone_light');
-    await expectAccessible(t);
+    await expectAccessibleCrisp(t);
     await show(t, [studio()], b: Brightness.dark);
     await expectGolden(find.byType(MaterialApp), 'spaces_phone_dark');
-    await expectAccessible(t);
+    await expectAccessibleCrisp(t);
   });
 
   testWidgets('golden: text 200 percent stacks the panes, accessible', (t) async {
     await show(t, [studio()], scale: 2);
     await expectGolden(find.byType(MaterialApp), 'spaces_phone_light_200');
-    await expectAccessible(t);
+    await expectAccessibleCrisp(t);
   });
 
   testWidgets('golden: tablet map with live previews, accessible', (t) async {
     await show(t, [studio()], f: Frame.tablet, b: Brightness.dark);
     expect(find.text('hello t-claude'), findsOneWidget, reason: 'live preview of the pane');
     await expectGolden(find.byType(MaterialApp), 'spaces_tablet_dark');
-    await expectAccessible(t);
+    await expectAccessibleCrisp(t);
   });
 }
 

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hyperox/auth/app_lock.dart';
+import 'package:hyperox/conn/machine_connection.dart';
 import 'package:hyperox/screens/settings_screen.dart';
 import 'package:hyperox/state/connections.dart';
 import 'package:hyperox/state/inbox.dart';
@@ -40,7 +41,7 @@ void main() {
   List<Override> overrides({bool biometrics = true, List<FakeConnection> machines = const []}) => [
         secretStoreProvider.overrideWithValue(secrets),
         biometricGateProvider.overrideWithValue(_Gate(biometrics)),
-        connectionsProvider.overrideWithValue(machines),
+        connectionsProvider.overrideWithValue(<MachineConnection>[...machines]),
         inboxPollProvider.overrideWithValue(null),
         copyTextProvider.overrideWithValue((t) async => copied.add(t)),
         shareTextProvider.overrideWithValue((t) async => shared.add(t)),
@@ -187,10 +188,10 @@ void main() {
   testWidgets('golden: top of the screen, light and dark, accessible', (t) async {
     await show(t, machines: [FakeConnection(id: 'devbox', name: 'devbox')]);
     await expectGolden(find.byType(MaterialApp), 'settings_phone_light');
-    await expectAccessible(t);
+    await expectAccessibleCrisp(t);
     await show(t, machines: [FakeConnection(id: 'devbox', name: 'devbox')], b: Brightness.dark);
     await expectGolden(find.byType(MaterialApp), 'settings_phone_dark');
-    await expectAccessible(t);
+    await expectAccessibleCrisp(t);
   });
 
   testWidgets('golden: key and known hosts, scrolled', (t) async {
@@ -201,18 +202,18 @@ void main() {
     await t.pumpAndSettle();
     await scrollTo(t, find.text('devbox:22'));
     await expectGolden(find.byType(MaterialApp), 'settings_phone_dark_key');
-    await expectAccessible(t);
+    await expectAccessibleCrisp(t);
   });
 
   testWidgets('golden: text 200 percent, accessible', (t) async {
     await show(t, scale: 2);
     await expectGolden(find.byType(MaterialApp), 'settings_phone_light_200');
-    await expectAccessible(t);
+    await expectAccessibleCrisp(t);
   });
 
   testWidgets('golden: tablet keeps a centred column', (t) async {
     await show(t, f: Frame.tablet);
     await expectGolden(find.byType(MaterialApp), 'settings_tablet_light');
-    await expectAccessible(t);
+    await expectAccessibleCrisp(t);
   });
 }

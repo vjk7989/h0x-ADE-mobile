@@ -55,7 +55,10 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
 
   MachineConnection? _conn(List<MachineConnection> all) {
     if (all.isEmpty) return null;
-    return all.firstWhere((c) => c.machine.id == _machineId, orElse: () => all.first);
+    for (final c in all) {
+      if (c.machine.id == _machineId) return c;
+    }
+    return all.first;
   }
 
   void _go(NavDest d) => (widget.onNavigate ?? (x) => context.go(x.path))(d);

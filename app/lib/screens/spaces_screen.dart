@@ -31,7 +31,10 @@ class _SpacesScreenState extends ConsumerState<SpacesScreen> {
 
   MachineConnection? _conn(List<MachineConnection> all) {
     if (all.isEmpty) return null;
-    return all.firstWhere((c) => c.machine.id == _machineId, orElse: () => all.first);
+    for (final c in all) {
+      if (c.machine.id == _machineId) return c;
+    }
+    return all.first;
   }
 
   void _openPane(MachineConnection conn, String terminal) {

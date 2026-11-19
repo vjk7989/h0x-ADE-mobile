@@ -1,5 +1,4 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hyperox/data/todo_model.dart';
 import 'package:hyperox/state/todo.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
