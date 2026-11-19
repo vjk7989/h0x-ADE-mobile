@@ -115,8 +115,11 @@ void main() {
       final label = find.bySemanticsLabel('Darkmatter, dark theme, selected');
       expect(label, findsOneWidget);
       // Bring the row clear of the bottom edge before tapping it.
-      await tester.drag(find.byType(ListView), const Offset(0, -200));
-      await tester.pumpAndSettle();
+      final position = tester
+          .state<ScrollableState>(find.byType(Scrollable).first)
+          .position;
+      position.jumpTo(position.pixels + 80);
+      await tester.pump();
       await tester.tap(find.bySemanticsLabel('Moss, dark theme'));
       await tester.pumpAndSettle();
       expect(find.bySemanticsLabel('Moss, dark theme, selected'), findsOneWidget);
