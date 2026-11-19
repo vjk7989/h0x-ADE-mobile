@@ -184,6 +184,7 @@ class _HxIntroState extends State<HxIntro> with SingleTickerProviderStateMixin {
                           size: size,
                           wide: wide,
                           top: top,
+                          dark: dark,
                         ),
                       ),
                       Positioned(
@@ -221,8 +222,10 @@ class _IntroPainter extends CustomPainter {
     required this.size,
     required this.wide,
     required this.top,
+    required this.dark,
   });
 
+  final bool dark;
   final double t;
   final bool reduced;
   final Size size;
@@ -260,23 +263,25 @@ class _IntroPainter extends CustomPainter {
       canvas.scale(scale);
       canvas.translate(-box.center.dx, -box.center.dy);
     }
+    // The wave colour: lighter on dark, darker on light (stays visible).
+    final hot = dark
+        ? Color.lerp(_accent, const Color(0xFFFFFFFF), 0.55)!
+        : Color.lerp(_accent, const Color(0xFF000000), 0.25)!;
     final rows = HxMark.rows;
     // Icons use heavier dots than the in-app mark: 0.36 of the step.
     final radius = step * 0.36;
     for (var r = 0; r < rows.length; r++) {
       for (var c = 0; c < 21; c++) {
         if (rows[r][c] != '1') continue;
-        // A dot on diagonal d = c + r starts at d x 6.8 ms and rises over 120.
-        final start = (c + r) * 6.8;
-        final a = reduced
-            ? 1.0
-            : 0.25 +
-                0.75 *
-                    HxMotion.standard.transform(((t - start) / 120).clamp(0.0, 1.0));
+        // Lit like the native splash at t = 0. A highlight wave runs over
+        // the dots: the dot on diagonal d = c + r starts at d x 6.8 ms, and
+        // over 160 ms its intensity goes 0 -> 1 -> 0 (ease in and out).
+        final u = reduced ? 0.0 : ((t - (c + r) * 6.8) / 160).clamp(0.0, 1.0);
+        final h = 0.5 - 0.5 * math.cos(2 * math.pi * u);
         canvas.drawCircle(
           Offset(box.left + (c + 0.5) * step, box.top + (r + 0.5) * step),
-          radius,
-          Paint()..color = _accent.withValues(alpha: a),
+          radius * (1 + 0.35 * h),
+          Paint()..color = Color.lerp(_accent, hot, h)!,
         );
       }
     }
@@ -285,7 +290,7 @@ class _IntroPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_IntroPainter old) =>
-      old.t != t || old.size != size || old.wide != wide || old.reduced != reduced;
+      old.t != t || old.dark != dark || old.size != size || old.wide != wide || old.reduced != reduced;
 }
 
 /// Shows [HxIntro] over [child] once per process on a cold start, then drops
