@@ -37,6 +37,13 @@ class HxType {
     fontFeatures: const [FontFeature.disable('calt')],
   );
 
+  /// [style] at another weight (the fonts are variable: the weight is a
+  /// font variation, so `copyWith(fontWeight:)` alone does not move it).
+  static TextStyle weight(TextStyle style, int weight) => style.copyWith(
+    fontWeight: _w(weight),
+    fontVariations: [FontVariation('wght', weight.toDouble())],
+  );
+
   static final display = _sans(30, 36, 600, tracking: -0.02);
   static final titleLg = _sans(24, 30, 600, tracking: -0.01);
   static final title = _sans(22, 28, 600);

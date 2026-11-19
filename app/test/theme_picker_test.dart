@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hyperox/screens/theme_picker_screen.dart';
 import 'package:hyperox/theme/theme_controller.dart';
+import 'package:hyperox/widgets/hx_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -88,14 +89,17 @@ void main() {
       await pumpGolden(tester, const ThemePickerScreen());
       final handle = tester.ensureSemantics();
       await tester.pump();
-      expect(find.bySemanticsLabel('Darkmatter, dark theme'), findsOneWidget);
-      // Light themes sit below the dark ones; the list builds lazily.
-      await tester.scrollUntilVisible(find.text('Paper'), 300);
       expect(
         find.bySemanticsLabel('Paper, light theme, selected'),
         findsOneWidget,
       );
-      expect(find.byIcon(Icons.check), findsOneWidget);
+      // Dark themes sit below the light ones; the list builds lazily.
+      await tester.scrollUntilVisible(find.text('Darkmatter'), 300);
+      expect(find.bySemanticsLabel('Darkmatter, dark theme'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate((w) => w is HxIcon && w.name == 'check'),
+        findsOneWidget,
+      );
       handle.dispose();
     });
 
@@ -106,9 +110,12 @@ void main() {
         brightness: Brightness.dark,
       );
       final handle = tester.ensureSemantics();
+      // The light themes list first; the dark ones are below.
+      await tester.scrollUntilVisible(find.text('Moss'), 300);
       final label = find.bySemanticsLabel('Darkmatter, dark theme, selected');
       expect(label, findsOneWidget);
-      await tester.tap(find.bySemanticsLabel('Moss, dark theme'));
+      // Tap through semantics: the row may sit at the edge of the viewport.
+      tester.semantics.tap(find.semantics.byLabel('Moss, dark theme'));
       await tester.pumpAndSettle();
       expect(find.bySemanticsLabel('Moss, dark theme, selected'), findsOneWidget);
       expect(find.bySemanticsLabel('Darkmatter, dark theme'), findsOneWidget);

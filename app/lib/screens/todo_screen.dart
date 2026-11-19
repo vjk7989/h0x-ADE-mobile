@@ -1,8 +1,9 @@
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:material_ui/material_ui.dart' hide Icon;
 
+import '../widgets/hx_icon_compat.dart';
 import '../conn/machine_connection.dart';
 import '../data/todo_model.dart';
 import '../state/connections.dart';
@@ -392,7 +393,7 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
         _Banner(
           title: '${conn.machine.name} is offline',
           text: 'Read-only copy from the last sync. Ticks and edits wait until it is back.',
-          kind: HxBannerKind.info,
+          kind: HxBannerKind.offline,
         ),
       if (doc != null && doc.readOnly)
         _Banner(

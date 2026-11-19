@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:material_ui/material_ui.dart' hide Icon;
 
+import 'hx_icon_compat.dart';
 import '../state/inbox.dart';
 import '../theme/themes.dart';
 import '../theme/type.dart';
+import 'hx.dart';
 
 class _Dest {
   const _Dest(this.label, this.path, this.icon);
@@ -62,6 +64,9 @@ class NavShell extends ConsumerWidget {
                 child: Column(
                   children: [
                     const SizedBox(height: 16),
+                    // The brand mark tops the rail.
+                    const HxMark(size: 28),
+                    const SizedBox(height: 16),
                     for (var i = 0; i < _dests.length; i++) item(i, rail: true),
                   ],
                 ),
@@ -115,8 +120,15 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.hx.colors;
-    final color = selected ? c.accent : c.muted;
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    // Selected: accent on dark, foreground on light (the boards).
+    final color = selected ? (dark ? c.accent : c.foreground) : c.muted;
     final base = selected ? '${dest.label}, selected' : dest.label;
+    // Labels grow with the text size, but stop at 1.3x (tokens section 14).
+    final scaler = MediaQuery.textScalerOf(context);
+    final labelScale = scaler.scale(12) / 12 > 1.3
+        ? const TextScaler.linear(1.3)
+        : scaler;
     return Semantics(
       button: true,
       selected: selected,
@@ -126,41 +138,48 @@ class _NavItem extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Container(
-          constraints: const BoxConstraints(minHeight: 64, minWidth: 48),
+          constraints: BoxConstraints(
+            minHeight: rail ? 76 : 64,
+            minWidth: 48,
+          ),
           padding: const EdgeInsets.symmetric(vertical: 8),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 56,
+                width: 64,
                 height: 32,
+                alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: selected ? c.selected : null,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Stack(
                   alignment: Alignment.center,
+                  clipBehavior: Clip.none,
                   children: [
                     Icon(dest.icon, size: 24, color: color),
                     if (badge > 0)
                       Positioned(
-                        top: 0,
-                        right: 8,
+                        top: -4,
+                        right: 6,
                         child: Container(
-                          constraints: const BoxConstraints(minWidth: 16),
-                          height: 16,
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          constraints: const BoxConstraints(minWidth: 18),
+                          height: 18,
+                          padding: const EdgeInsets.symmetric(horizontal: 5),
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
-                            color: c.working,
-                            borderRadius: BorderRadius.circular(8),
+                            color: dark ? c.accent : c.working,
+                            borderRadius: BorderRadius.circular(9),
                           ),
                           child: Text(
                             '$badge',
+                            textScaler: TextScaler.noScaling,
                             style: HxType.mono.copyWith(
-                              fontSize: 10.5,
-                              color: c.screen,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: dark ? c.accentForeground : Colors.white,
                             ),
                           ),
                         ),
@@ -172,7 +191,15 @@ class _NavItem extends StatelessWidget {
               Text(
                 dest.label,
                 maxLines: 1,
-                style: HxType.caption.copyWith(color: color, fontSize: 11.5),
+                textScaler: labelScale,
+                style: HxType.caption.copyWith(
+                  color: color,
+                  fontSize: 12,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+                  fontVariations: [
+                    FontVariation('wght', selected ? 600 : 500),
+                  ],
+                ),
               ),
             ],
           ),

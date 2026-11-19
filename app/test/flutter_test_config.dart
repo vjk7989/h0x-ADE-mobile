@@ -15,6 +15,7 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
   await _loadFont('Geist', 'assets/fonts/Geist.ttf');
   await _loadFont('JetBrainsMono', 'assets/fonts/JetBrainsMono-Variable.ttf');
+  await _loadFont('PatrickHand', 'assets/fonts/PatrickHand-Regular.ttf');
   await _loadMaterialIcons();
   await testMain();
 }

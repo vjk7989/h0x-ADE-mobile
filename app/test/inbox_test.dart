@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hyperox/conn/machine_connection.dart';
+import 'package:hyperox/screens/agent_screen.dart';
 import 'package:hyperox/screens/inbox_screen.dart';
 import 'package:hyperox/state/connections.dart';
 import 'package:hyperox/state/inbox.dart';
@@ -323,7 +324,8 @@ void main() {
 
     testWidgets('golden: tablet shows the rail and a list beside a pane', (t) async {
       await show(t, [studio(), devbox()], f: Frame.tablet);
-      expect(find.text('Select an agent'), findsOneWidget);
+      // The first agent that needs the person opens beside the list.
+      expect(find.byType(AgentScreen), findsOneWidget);
       await expectGolden(find.byType(MaterialApp), 'inbox_tablet_light');
       await expectAccessible(t);
     });
