@@ -85,10 +85,10 @@ void main() {
       final img = t.widget<RawImage>(find.byType(RawImage)).image!;
       expect(img.debugDisposed, isFalse, reason: 'the shown picture is alive');
       // 200 ms after the second switch the first fade would be over: the
-      // second one is still running.
+      // second one is still running (spec change: S1.4 400 ms reveal).
       await t.pump(const Duration(milliseconds: 200));
       expect(find.byType(RawImage), findsOneWidget);
-      await t.pump(const Duration(milliseconds: 60));
+      await t.pump(const Duration(milliseconds: 260));
       await t.pump();
       expect(find.byType(RawImage), findsNothing);
       expect(t.binding.transientCallbackCount, 0);
@@ -100,7 +100,7 @@ void main() {
         await t.pumpWidget(_themed(id));
         expect(find.byType(RawImage).evaluate().length, lessThanOrEqualTo(1));
       }
-      await t.pump(const Duration(milliseconds: 300));
+      await t.pump(const Duration(milliseconds: 450));
       await t.pump();
       expect(find.byType(RawImage), findsNothing);
       expect(t.binding.transientCallbackCount, 0);

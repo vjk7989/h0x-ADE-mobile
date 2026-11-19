@@ -279,27 +279,33 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
             ),
             // History replays under a thin bar, which fades out when done.
             _ReplayBar(progress: a.replayProgress, active: a.replaying),
-            if (phase == AgentPhase.reconnecting)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                child: HxBanner(
-                  kind: HxBannerKind.info,
-                  title: 'Reconnecting to ${a.conn.machine.name}',
-                  message: a.error ?? 'Output so far stays here.',
-                  trailing: a.retryIn == null
-                      ? null
-                      : _RetryRing(total: a.retryIn!, epoch: a.retryEpoch),
-                ),
-              ),
-            if (_locked != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                child: HxBanner(
-                  kind: HxBannerKind.info,
-                  title: 'Locked on the computer',
-                  message: _locked!,
-                ),
-              ),
+            HxBannerSlot(
+              child: phase == AgentPhase.reconnecting
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                      child: HxBanner(
+                        kind: HxBannerKind.info,
+                        title: 'Reconnecting to ${a.conn.machine.name}',
+                        message: a.error ?? 'Output so far stays here.',
+                        trailing: a.retryIn == null
+                            ? null
+                            : _RetryRing(total: a.retryIn!, epoch: a.retryEpoch),
+                      ),
+                    )
+                  : null,
+            ),
+            HxBannerSlot(
+              child: _locked == null
+                  ? null
+                  : Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                      child: HxBanner(
+                        kind: HxBannerKind.info,
+                        title: 'Locked on the computer',
+                        message: _locked!,
+                      ),
+                    ),
+            ),
             Expanded(child: _terminalArea(context, a)),
             if (blocked && phase == AgentPhase.ready)
               _PromptCard(

@@ -267,10 +267,14 @@ class _AddMachineScreenState extends ConsumerState<AddMachineScreen> {
     final form = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_failure != null) ...[
-          HxBanner(title: _failure!.title, message: _failure!.hint),
-          const SizedBox(height: 12),
-        ],
+        HxBannerSlot(
+          child: _failure == null
+              ? null
+              : Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: HxBanner(title: _failure!.title, message: _failure!.hint),
+                ),
+        ),
         _Field(
           label: 'Host, IP or Tailscale name',
           hint: 'devbox.tail1234.ts.net',

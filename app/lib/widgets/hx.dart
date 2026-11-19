@@ -272,19 +272,15 @@ enum HxBannerKind { error, info, offline, warn }
 
 /// A strip announced to the screen reader as it appears. Text stays
 /// `foreground`; the state colour is on the icon and the edge (tokens rule 3).
-class HxBanner extends StatefulWidget {
+/// It grows in by itself; to animate it out too, put it in an [HxBannerSlot].
+class HxBanner extends StatelessWidget {
   const HxBanner({
     super.key,
     required this.title,
     required this.message,
     this.kind = HxBannerKind.error,
     this.trailing,
-    this.ghost = false,
   });
-
-  /// A copy shown while a removed banner fades out: no grow-in, no ghost of
-  /// its own.
-  final bool ghost;
 
   final String title;
   final String message;
@@ -294,70 +290,7 @@ class HxBanner extends StatefulWidget {
   final Widget? trailing;
 
   @override
-  State<HxBanner> createState() => _HxBannerState();
-}
-
-class _HxBannerState extends State<HxBanner> {
-  OverlayState? _overlay;
-  Rect? _rect;
-  var _watching = false;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _overlay = Overlay.maybeOf(context);
-  }
-
-  /// Keeps the banner's last place on screen, for its exit.
-  void _remember() {
-    if (!mounted) return;
-    final box = context.findRenderObject();
-    if (box is RenderBox && box.attached && box.hasSize) {
-      _rect = box.localToGlobal(Offset.zero) & box.size;
-    }
-    _watching = false;
-  }
-
-  @override
-  void dispose() {
-    // The banner is already out of the tree: a copy of it fades out and
-    // collapses in the overlay over 160 ms (emphasized accel).
-    final overlay = _overlay;
-    final rect = _rect;
-    if (!widget.ghost && overlay != null && overlay.mounted && rect != null) {
-      late OverlayEntry entry;
-      entry = OverlayEntry(
-        builder: (context) => _BannerGhost(
-          rect: rect,
-          onDone: () => entry.remove(),
-          child: HxBanner(
-            title: widget.title,
-            message: widget.message,
-            kind: widget.kind,
-            trailing: widget.trailing,
-            ghost: true,
-          ),
-        ),
-      );
-      // The tree is locked while it is being torn down: the copy goes in on
-      // the next frame.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (overlay.mounted) overlay.insert(entry);
-      });
-    }
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (!_watching) {
-      _watching = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) => _remember());
-    }
-    final title = widget.title;
-    final message = widget.message;
-    final kind = widget.kind;
-    final trailing = widget.trailing;
     final c = context.hx.colors;
     final tone = switch (kind) {
       HxBannerKind.error => c.blocked,
@@ -373,7 +306,7 @@ class _HxBannerState extends State<HxBanner> {
     // It grows in with a fade and an 8 dp slide down (200 ms, emphasized
     // decel), clipped while it grows; with reduced motion it is simply there.
     return TweenAnimationBuilder<double>(
-      tween: Tween(begin: widget.ghost ? 1 : 0, end: 1),
+      tween: Tween(begin: 0, end: 1),
       duration: HxMotion.d(context, HxMotion.stateChange, fade: true),
       curve: HxMotion.emphasizedDecel,
       builder: (context, t, child) => Opacity(
@@ -430,35 +363,48 @@ class _HxBannerState extends State<HxBanner> {
   }
 }
 
-/// A removed banner, drawn over where it was: it fades out and collapses
-/// (160 ms, emphasized accel), then removes itself.
-class _BannerGhost extends StatefulWidget {
-  const _BannerGhost({required this.rect, required this.onDone, required this.child});
+/// Holds a banner (with its padding) that comes and goes. While [child] is
+/// set it shows it; when [child] turns null the last one fades out and
+/// collapses over 160 ms (emphasized accel), in the same frame, so there is
+/// never a frame without it. With reduced motion it is gone at once.
+class HxBannerSlot extends StatefulWidget {
+  const HxBannerSlot({super.key, required this.child});
 
-  final Rect rect;
-  final VoidCallback onDone;
-  final Widget child;
+  final Widget? child;
 
   @override
-  State<_BannerGhost> createState() => _BannerGhostState();
+  State<HxBannerSlot> createState() => _HxBannerSlotState();
 }
 
-class _BannerGhostState extends State<_BannerGhost> with SingleTickerProviderStateMixin {
+class _HxBannerSlotState extends State<HxBannerSlot> with SingleTickerProviderStateMixin {
   late final AnimationController _c = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 160),
+    value: 1,
   );
+  Widget? _shown;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_c.isAnimating || _c.value > 0) return;
-    // Reduced motion: gone at once.
-    if (HxMotion.reduced(context)) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => widget.onDone());
-      return;
+  void initState() {
+    super.initState();
+    _shown = widget.child;
+  }
+
+  @override
+  void didUpdateWidget(HxBannerSlot old) {
+    super.didUpdateWidget(old);
+    if (widget.child != null) {
+      _shown = widget.child;
+      _c.value = 1;
+    } else if (old.child != null && _shown != null) {
+      if (HxMotion.reduced(context)) {
+        _shown = null;
+      } else {
+        _c.reverse(from: 1).whenComplete(() {
+          if (mounted && widget.child == null) setState(() => _shown = null);
+        });
+      }
     }
-    _c.forward().whenComplete(widget.onDone);
   }
 
   @override
@@ -468,24 +414,24 @@ class _BannerGhostState extends State<_BannerGhost> with SingleTickerProviderSta
   }
 
   @override
-  Widget build(BuildContext context) => Positioned.fromRect(
-    rect: widget.rect,
-    child: IgnorePointer(
-      child: AnimatedBuilder(
-        animation: _c,
-        builder: (context, child) {
-          final t = HxMotion.emphasizedAccel.transform(_c.value);
-          return Opacity(
-            opacity: 1 - t,
-            child: ClipRect(
-              child: Align(heightFactor: 1 - t, alignment: Alignment.topCenter, child: child),
-            ),
-          );
-        },
-        child: widget.child,
-      ),
-    ),
-  );
+  Widget build(BuildContext context) {
+    final shown = _shown;
+    if (shown == null) return const SizedBox.shrink();
+    if (widget.child != null) return shown;
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, child) {
+        final t = HxMotion.emphasizedAccel.transform(_c.value);
+        return Opacity(
+          opacity: t,
+          child: ClipRect(
+            child: Align(heightFactor: t, alignment: Alignment.topCenter, child: child),
+          ),
+        );
+      },
+      child: shown,
+    );
+  }
 }
 
 double _contrast(Color a, Color b) {
