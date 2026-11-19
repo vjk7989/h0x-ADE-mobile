@@ -336,7 +336,10 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
           autofocus: false,
           readOnly: !_ready,
         );
+        // expand: inside a Column the Stack would otherwise shrink to the
+        // width of its only unpositioned child (zero).
         return Stack(
+          fit: StackFit.expand,
           children: [
             Positioned.fill(
               child: ColoredBox(
