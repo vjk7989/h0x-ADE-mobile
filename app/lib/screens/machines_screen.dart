@@ -3,8 +3,9 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:material_ui/material_ui.dart' hide Icon;
 
+import '../widgets/hx_icon_compat.dart';
 import '../config.dart';
 import '../conn/machine_connection.dart';
 import '../conn/machine_directory.dart';
@@ -14,7 +15,10 @@ import '../data/ssh_machines_repo.dart';
 import '../session_state.dart';
 import '../theme/themes.dart';
 import '../theme/type.dart';
+import '../state/inbox.dart';
+import '../widgets/app_shell.dart';
 import '../widgets/hx.dart';
+import '../widgets/hx_bits.dart';
 import '../widgets/machine_sheets.dart';
 
 String osLabel(String os) => switch (os) {
@@ -52,6 +56,8 @@ class MachinesScreen extends ConsumerStatefulWidget {
 }
 
 class _MachinesScreenState extends ConsumerState<MachinesScreen> {
+  String? _selected;
+
   @override
   void initState() {
     super.initState();
@@ -71,8 +77,16 @@ class _MachinesScreenState extends ConsumerState<MachinesScreen> {
     final account = [for (final e in entries) if (e.ssh == null) e];
     final ssh = [for (final e in entries) if (e.ssh != null) e];
     final online = entries.where((e) => stateWord(e) == 'online').length;
+    final wide = MediaQuery.sizeOf(context).width >= kRailBreakpoint;
+    MachineEntry? picked;
+    for (final e in entries) {
+      if (e.info.id == _selected) picked = e;
+    }
+    picked ??= entries.isEmpty ? null : entries.first;
+    final selectedId = wide ? picked?.info.id : null;
+    void select(MachineEntry e) => setState(() => _selected = e.info.id);
 
-    return Stack(
+    final list = Stack(
       children: [
         SafeArea(
           bottom: false,
@@ -131,9 +145,19 @@ class _MachinesScreenState extends ConsumerState<MachinesScreen> {
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
                         children: [
                           if (account.isNotEmpty)
-                            _Section(label: 'ACCOUNT', entries: account),
+                            _Section(
+                              label: 'ACCOUNT',
+                              entries: account,
+                              selectedId: selectedId,
+                              onSelect: wide ? select : null,
+                            ),
                           if (ssh.isNotEmpty)
-                            _Section(label: 'SSH · THIS PHONE', entries: ssh),
+                            _Section(
+                              label: 'SSH · THIS PHONE',
+                              entries: ssh,
+                              selectedId: selectedId,
+                              onSelect: wide ? select : null,
+                            ),
                         ],
                       ),
               ),
@@ -146,6 +170,19 @@ class _MachinesScreenState extends ConsumerState<MachinesScreen> {
             bottom: 16,
             child: _AddFab(onTap: () => context.go('/machines/add')),
           ),
+      ],
+    );
+    if (!wide || picked == null) return list;
+    return Row(
+      children: [
+        SizedBox(width: 360, child: list),
+        VerticalDivider(width: 1, color: c.hairline),
+        Expanded(
+          child: SafeArea(
+            bottom: false,
+            child: _MachineDetail(entry: picked),
+          ),
+        ),
       ],
     );
   }
@@ -324,10 +361,17 @@ class _ModeCard extends StatelessWidget {
 }
 
 class _Section extends StatelessWidget {
-  const _Section({required this.label, required this.entries});
+  const _Section({
+    required this.label,
+    required this.entries,
+    this.selectedId,
+    this.onSelect,
+  });
 
   final String label;
   final List<MachineEntry> entries;
+  final String? selectedId;
+  final void Function(MachineEntry)? onSelect;
 
   @override
   Widget build(BuildContext context) {
@@ -348,7 +392,13 @@ class _Section extends StatelessWidget {
             children: [
               for (var i = 0; i < entries.length; i++) ...[
                 if (i > 0) Divider(height: 1, color: c.hairline),
-                _MachineRow(entry: entries[i]),
+                _MachineRow(
+                  entry: entries[i],
+                  selected: entries[i].info.id == selectedId,
+                  onSelect: onSelect == null
+                      ? null
+                      : () => onSelect!(entries[i]),
+                ),
               ],
             ],
           ),
@@ -358,8 +408,10 @@ class _Section extends StatelessWidget {
   }
 }
 
-class _MachineRow extends ConsumerWidget {
-  const _MachineRow({required this.entry});
+/// The detail pane of the two-pane layout: the selected machine's facts,
+/// agents, and the actions that need room (machines board 03).
+class _MachineDetail extends ConsumerWidget {
+  const _MachineDetail({required this.entry});
 
   final MachineEntry entry;
 
@@ -373,91 +425,333 @@ class _MachineRow extends ConsumerWidget {
       _ => c.muted,
     };
     final isSsh = entry.ssh != null;
-    final meta = isSsh
-        ? '${osLabel(entry.info.os).toLowerCase()} · ${entry.address}'
-        : osLabel(entry.info.os).toLowerCase();
-    return Column(
+    final row = _MachineRow(entry: entry);
+    final inbox = ref.watch(inboxProvider).value;
+    Widget kv(String k, String v) => ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 44),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 88,
+            child: Text(k, style: HxType.mono.copyWith(color: c.muted)),
+          ),
+          Expanded(child: Text(v, style: HxType.mono)),
+        ],
+      ),
+    );
+    final sshMachine = entry.ssh;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
       children: [
-        Semantics(
-          button: true,
-          label: rowLabel(entry),
-          excludeSemantics: true,
-          onTap: () => context.go('/inbox'),
-          onLongPress: () => _actions(context, ref),
-          child: InkWell(
-            onTap: () => context.go('/inbox'),
-            onLongPress: () => _actions(context, ref),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(minHeight: 72),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: c.well,
-                        borderRadius: BorderRadius.circular(10),
+        Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: c.well,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Icon(
+                entry.info.os == 'windows'
+                    ? Icons.desktop_windows_outlined
+                    : Icons.dns_outlined,
+                size: 26,
+                color: c.muted,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Semantics(
+                    header: true,
+                    child: Text(entry.info.name, style: HxType.titleLg),
+                  ),
+                  Wrap(
+                    spacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      HxTag(
+                        isSsh ? 'ssh' : 'account',
+                        color: isSsh ? c.done : c.accent,
                       ),
-                      child: Icon(
-                        entry.info.os == 'windows'
-                            ? Icons.desktop_windows_outlined
-                            : Icons.dns_outlined,
-                        size: 20,
-                        color: c.muted,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            entry.info.name,
-                            style: HxType.heading.copyWith(
-                              fontWeight: FontWeight.w500,
-                            ),
+                      Text(word, style: HxType.mono.copyWith(color: wordColor)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            if (sshMachine != null)
+              SizedBox(
+                width: 48,
+                height: 48,
+                child: IconButton(
+                  tooltip: 'Rename ${entry.info.name}',
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () => row._rename(context, ref, sshMachine),
+                ),
+              ),
+            SizedBox(
+              width: 48,
+              height: 48,
+              child: IconButton(
+                tooltip: 'More options for ${entry.info.name}',
+                icon: const Icon(Icons.more_vert),
+                onPressed: () => row._actions(context, ref),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        const SectionLabel('Connection'),
+        HxCard(
+          child: Column(
+            children: [
+              kv(
+                'mode',
+                isSsh
+                    ? (sshMachine!.tailscale ? 'ssh · tailscale' : 'ssh · key')
+                    : 'account · relay',
+              ),
+              kv('os', osLabel(entry.info.os).toLowerCase()),
+              kv('address', entry.address.isEmpty ? '-' : entry.address),
+              kv('seen', word == 'online' ? 'now' : 'not reachable'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 4),
+        ValueListenableBuilder<InboxState>(
+          valueListenable: inbox,
+          builder: (context, state, _) {
+            final snap = state.machines.where((m) => m.info.id == entry.info.id);
+            final sessions = snap.isEmpty ? const <Session>[] : snap.first.sessions;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SectionLabel('Agents', count: sessions.length),
+                SizedBox(
+                  width: double.infinity,
+                  child: HxCard(
+                  padding: EdgeInsets.zero,
+                  child: sessions.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Text(
+                            'No agents running.',
+                            style: HxType.bodySm.copyWith(color: c.muted),
                           ),
-                          Text(
-                            meta,
-                            style: HxType.mono.copyWith(color: c.muted),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        HxTag(
-                          isSsh ? 'ssh' : 'account',
-                          color: isSsh ? c.done : c.accent,
-                        ),
-                        const SizedBox(height: 2),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
+                        )
+                      : Column(
                           children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: BoxDecoration(
-                                color: wordColor,
-                                shape: BoxShape.circle,
+                            for (final s in sessions)
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(minHeight: 56),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(s.agent, style: HxType.bodyLg),
+                                            Text(
+                                              shortFolder(s.folder),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: HxType.mono.copyWith(
+                                                color: c.muted,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      HxTag(
+                                        groupWord(s.group, kind: s.blockedKind),
+                                        color: groupColor(c, s.group),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              word,
-                              style: HxType.mono.copyWith(color: wordColor),
-                            ),
                           ],
                         ),
-                      ],
+                ),
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: HxButton(
+                label: 'Open inbox',
+                kind: HxButtonKind.primary,
+                semanticsLabel: 'Open inbox of ${entry.info.name}',
+                onPressed: () => context.go('/inbox'),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: HxButton(
+                label: 'Spaces',
+                semanticsLabel: 'Open spaces of ${entry.info.name}',
+                onPressed: () => context.go('/spaces'),
+              ),
+            ),
+          ],
+        ),
+        if (sshMachine != null) ...[
+          const SizedBox(height: 12),
+          HxButton(
+            label: 'Remove from this phone',
+            kind: HxButtonKind.danger,
+            onPressed: () => row._remove(context, ref, sshMachine),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _MachineRow extends ConsumerWidget {
+  const _MachineRow({required this.entry, this.onSelect, this.selected = false});
+
+  final MachineEntry entry;
+
+  /// Wide layout: a tap selects the row for the detail pane.
+  final VoidCallback? onSelect;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final c = context.hx.colors;
+    final word = stateWord(entry);
+    final wordColor = switch (word) {
+      'online' => c.ok,
+      'blocked' => c.blocked,
+      _ => c.muted,
+    };
+    final isSsh = entry.ssh != null;
+    final os = osLabel(entry.info.os).toLowerCase();
+    final meta = isSsh ? '$os · ${entry.address}' : os;
+    // From 1.5x text the row stacks: name, meta by line, tag, state.
+    final stacked = MediaQuery.textScalerOf(context).scale(14) / 14 >= 1.5;
+    final tag = HxTag(isSsh ? 'ssh' : 'account', color: isSsh ? c.done : c.accent);
+    final state = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: wordColor, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(word, style: HxType.mono.copyWith(color: wordColor)),
+      ],
+    );
+    final name = Text(
+      entry.info.name,
+      maxLines: stacked ? 3 : 1,
+      overflow: TextOverflow.ellipsis,
+      style: HxType.heading.copyWith(fontWeight: FontWeight.w500),
+    );
+    final icon = Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(
+        color: c.well,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(
+        entry.info.os == 'windows'
+            ? Icons.desktop_windows_outlined
+            : Icons.dns_outlined,
+        size: 20,
+        color: c.muted,
+      ),
+    );
+    final Widget body = stacked
+        ? Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              icon,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    name,
+                    // The meta line wraps by line at its separators.
+                    Text(
+                      meta.replaceAll(' · ', '\n'),
+                      style: HxType.mono.copyWith(color: c.muted),
+                    ),
+                    const SizedBox(height: 4),
+                    tag,
+                    const SizedBox(height: 2),
+                    state,
+                  ],
+                ),
+              ),
+            ],
+          )
+        : Row(
+            children: [
+              icon,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    name,
+                    // One line, cut with an ellipsis (the full address is in
+                    // the actions sheet and the detail pane).
+                    Text(
+                      meta,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: HxType.mono.copyWith(color: c.muted),
                     ),
                   ],
                 ),
               ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [tag, const SizedBox(height: 2), state],
+              ),
+            ],
+          );
+    void tap() => onSelect != null ? onSelect!() : context.go('/inbox');
+    return Column(
+      children: [
+        Semantics(
+          button: true,
+          selected: selected,
+          label: rowLabel(entry),
+          excludeSemantics: true,
+          onTap: tap,
+          onLongPress: () => _actions(context, ref),
+          child: InkWell(
+            onTap: tap,
+            onLongPress: () => _actions(context, ref),
+            child: Container(
+              decoration: BoxDecoration(
+                color: selected ? c.selected : null,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              constraints: const BoxConstraints(minHeight: 72),
+              padding: const EdgeInsets.all(12),
+              child: body,
             ),
           ),
         ),

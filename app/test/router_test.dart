@@ -6,11 +6,35 @@ import 'package:hyperox/session_state.dart';
 import 'package:hyperox/theme/theme_controller.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-String? go(String location, {bool signedIn = false, int ssh = 0}) =>
-    redirectFor(location: location, signedIn: signedIn, sshMachines: ssh);
+String? go(
+  String location, {
+  bool signedIn = false,
+  int ssh = 0,
+  bool account = true,
+}) => redirectFor(
+  location: location,
+  signedIn: signedIn,
+  sshMachines: ssh,
+  accountMode: account,
+);
 
 void main() {
-  group('redirectFor', () {
+  group('redirectFor, SSH-only build', () {
+    test('the first run goes to Machines; there is no sign-in screen', () {
+      expect(go('/', account: false), '/machines');
+      expect(go('/sign-in', account: false), '/machines');
+      expect(go('/machines', account: false), isNull);
+      expect(go('/machines/add', account: false), isNull);
+      expect(go('/inbox', account: false), isNull);
+    });
+
+    test('SSH machines go to the Inbox', () {
+      expect(go('/', ssh: 1, account: false), '/inbox');
+      expect(go('/sign-in', ssh: 1, account: false), '/inbox');
+    });
+  });
+
+  group('redirectFor, account mode', () {
     test('no account and no SSH machine goes to sign-in', () {
       expect(go('/'), '/sign-in');
       expect(go('/inbox'), '/sign-in');
@@ -68,8 +92,8 @@ void main() {
         .path;
   }
 
-  testWidgets('a new user lands on sign-in', (tester) async {
-    expect(await pumpAt(tester, signedIn: false, ssh: 0), '/sign-in');
+  testWidgets('a new user lands on Machines, not sign-in', (tester) async {
+    expect(await pumpAt(tester, signedIn: false, ssh: 0), '/machines');
   });
 
   testWidgets('a user with SSH machines only lands on the Inbox', (

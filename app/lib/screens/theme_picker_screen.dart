@@ -1,10 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:material_ui/material_ui.dart' hide Icon;
 
+import '../widgets/hx_icon_compat.dart';
 import '../theme/theme_controller.dart';
 import '../theme/themes.dart';
 import '../theme/type.dart';
+import '../widgets/hx_icons.dart';
 
 /// Every desktop theme, each with a live swatch drawn in its own colours,
 /// the one on screen ticked, plus System / Light / Dark like the desktop.
@@ -21,14 +23,23 @@ class ThemePickerScreen extends ConsumerWidget {
     final dark = kThemeSpecs.where((t) => !t.isLight).toList();
     final light = kThemeSpecs.where((t) => t.isLight).toList();
 
-    Widget section(String title, List<ThemeSpec> specs) => Column(
+    final system = settings.mode == HxThemeMode.system;
+
+    Widget section(String title, List<ThemeSpec> specs, {String? hint}) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
-          child: Semantics(
-            header: true,
-            child: Text(title, style: HxType.labelXs.copyWith(color: hx.muted)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Semantics(
+                header: true,
+                child: Text(title, style: HxType.labelXs.copyWith(color: hx.muted)),
+              ),
+              if (hint != null)
+                Text(hint, style: HxType.mono.copyWith(color: hx.muted, fontSize: 11.5)),
+            ],
           ),
         ),
         for (final spec in specs)
@@ -79,8 +90,20 @@ class ThemePickerScreen extends ConsumerWidget {
                     mode: settings.mode,
                     onChanged: controller.setMode,
                   ),
-                  section('DARK THEMES', dark),
-                  section('LIGHT THEMES', light),
+                  // Light first (the desktop's order). System lists both, with
+                  // when each is used; Light and Dark list only their own.
+                  if (settings.mode != HxThemeMode.dark)
+                    section(
+                      'LIGHT · ${light.length}',
+                      light,
+                      hint: system ? 'used when the phone is light' : null,
+                    ),
+                  if (settings.mode != HxThemeMode.light)
+                    section(
+                      'DARK · ${dark.length}',
+                      dark,
+                      hint: system ? 'used when the phone is dark' : null,
+                    ),
                 ],
               ),
             ),
@@ -170,7 +193,7 @@ class _ThemeRow extends StatelessWidget {
       excludeSemantics: true,
       onTap: onTap,
       child: Material(
-        color: hx.card,
+        color: selected ? hx.selected : hx.card,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
@@ -195,13 +218,24 @@ class _ThemeRow extends StatelessWidget {
                     children: [
                       Text(spec.label, style: HxType.heading),
                       Text(
-                        spec.isLight ? 'Light' : 'Dark',
-                        style: HxType.caption.copyWith(color: hx.muted),
+                        spec.isLight ? '[light]' : '[dark]',
+                        // On a selected row the secondary text is foreground.
+                        style: HxType.mono.copyWith(
+                          color: selected ? hx.foreground : hx.muted,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                if (selected) Icon(Icons.check, color: hx.accent, size: 24),
+                if (selected)
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(color: hx.accent, shape: BoxShape.circle),
+                    child: Center(
+                      child: HxIcon('check', size: 16, color: hx.accentForeground),
+                    ),
+                  ),
               ],
             ),
           ),

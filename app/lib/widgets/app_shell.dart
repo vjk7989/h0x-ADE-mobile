@@ -1,5 +1,6 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:material_ui/material_ui.dart' hide Icon;
 
+import 'hx_icon_compat.dart';
 import '../theme/themes.dart';
 import '../theme/type.dart';
 

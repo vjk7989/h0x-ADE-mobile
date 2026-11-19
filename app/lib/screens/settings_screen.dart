@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:material_ui/material_ui.dart' hide Icon;
 
+import '../widgets/hx_icon_compat.dart';
 import '../auth/app_lock.dart';
 import '../auth/auth_service.dart';
 import '../config.dart';
@@ -15,6 +16,7 @@ import '../theme/type.dart';
 import '../widgets/app_shell.dart';
 import '../widgets/hx.dart';
 import '../widgets/hx_bits.dart';
+import '../widgets/hx_icons.dart';
 
 /// Settings (design: Settings): theme, security, notifications, this phone's
 /// SSH key, known hosts. Account-only blocks sit behind [kAccountMode].
@@ -34,6 +36,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   KeyResult? _key;
   var _keyLoaded = false;
   Map<String, String> _hosts = const {};
+  String? _category;
 
   @override
   void initState() {
@@ -247,25 +250,136 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             ),
         ],
       ),
+      _Group(
+        label: 'ABOUT',
+        children: [
+          _Row(
+            icon: Icons.info_outline,
+            title: 'HyperOx mobile',
+            subtitle: kAccountMode ? 'Account and SSH modes' : 'SSH mode',
+          ),
+        ],
+      ),
     ];
+
+    if (wide) {
+      // Two panes: the categories (320 wide, on chrome) and the selected
+      // category's group (settings board 03).
+      final groups = children.whereType<_Group>().toList();
+      final current = groups.firstWhere(
+        (g) => g.label == _category,
+        orElse: () => groups.first,
+      );
+      return ScreenBody(
+        body: Column(
+          children: [
+            const ScreenHeader(title: 'Settings'),
+            Expanded(
+              child: Row(
+                children: [
+                  Container(
+                    width: 320,
+                    color: c.chrome,
+                    child: ListView(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      children: [
+                        for (final g in groups)
+                          _CategoryRow(
+                            group: g,
+                            selected: g.label == current.label,
+                            onTap: () => setState(() => _category = g.label),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                      children: [current],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return ScreenBody(
       body: Column(
         children: [
           const ScreenHeader(title: 'Settings'),
           Expanded(
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: wide ? 560 : double.infinity),
-                child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                  children: children,
-                ),
-              ),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              children: children,
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A category of the two-pane layout: icon and title, 52 dp.
+class _CategoryRow extends StatelessWidget {
+  const _CategoryRow({
+    required this.group,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _Group group;
+  final bool selected;
+  final VoidCallback onTap;
+
+  static const _meta = {
+    'ACCOUNT': ('Account', 'user'),
+    'APPEARANCE': ('Appearance', 'palette'),
+    'SECURITY': ('Security', 'shield-check'),
+    'NOTIFICATIONS': ('Notifications', 'bell'),
+    'SSH KEY OF THIS PHONE': ('SSH key', 'key'),
+    'KNOWN HOSTS': ('Known hosts', 'server'),
+    'ABOUT': ('About', 'info'),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.hx.colors;
+    final (title, icon) = _meta[group.label] ?? (group.label, 'settings');
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final tint = selected ? (dark ? c.accent : c.foreground) : c.muted;
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: selected ? '$title, selected' : title,
+      excludeSemantics: true,
+      onTap: onTap,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 52),
+          margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: selected ? c.selected : null,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              HxIcon(icon, size: 20, color: tint),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Text(
+                  title,
+                  style: HxType.weight(HxType.bodyLg, selected ? 600 : 500)
+                      .copyWith(color: selected ? c.foreground : c.muted),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

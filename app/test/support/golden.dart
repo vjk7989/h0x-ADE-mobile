@@ -1,7 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:hyperox/router.dart';
 import 'package:hyperox/theme/theme_controller.dart';
+import 'package:hyperox/widgets/code_rain.dart';
 import 'package:hyperox/theme/themes.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,6 +16,16 @@ enum Frame {
 
   const Frame(this.size);
   final Size size;
+}
+
+/// A phone has a status bar (32 dp) and a gesture area (24 dp), tokens
+/// section 6. Goldens pretend so, or inset handling is never shown.
+void _setInsets(WidgetTester tester, double dpr) {
+  final pad = FakeViewPadding(top: 32 * dpr, bottom: 24 * dpr);
+  tester.view.padding = pad;
+  tester.view.viewPadding = pad;
+  addTearDown(tester.view.resetPadding);
+  addTearDown(tester.view.resetViewPadding);
 }
 
 /// Pumps [child] in a [frame] at [textScale] with a HyperOx theme: [themeId],
@@ -28,12 +41,14 @@ Future<void> pumpGolden(
   String? themeId,
   double dpr = 1.0,
   bool settle = true,
+  bool insets = true,
   Map<String, Object> stored = const {},
   List<Override> overrides = const [],
 }) async {
   tester.view.physicalSize = frame.size * dpr;
   tester.view.devicePixelRatio = dpr;
   addTearDown(tester.view.reset);
+  if (insets) _setInsets(tester, dpr);
   tester.platformDispatcher.platformBrightnessTestValue = brightness;
   addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
   SharedPreferences.setMockInitialValues(stored);
@@ -46,7 +61,11 @@ Future<void> pumpGolden(
   );
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [sharedPrefsProvider.overrideWithValue(prefs), ...overrides],
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        codeRainAnimateProvider.overrideWithValue(false),
+        ...overrides,
+      ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: themeData(spec),
@@ -67,5 +86,65 @@ Future<void> pumpGolden(
     for (var i = 0; i < 6; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
+  }
+}
+
+/// Pumps the real router at [location], so the navigation (bottom bar or
+/// rail) is part of the picture. Same theme, insets and text scale as
+/// [pumpGolden].
+Future<void> pumpShellGolden(
+  WidgetTester tester,
+  String location, {
+  Frame frame = Frame.phone,
+  Brightness brightness = Brightness.light,
+  double textScale = 1.0,
+  String? themeId,
+  double dpr = 1.0,
+  bool insets = true,
+  Map<String, Object> stored = const {},
+  List<Override> overrides = const [],
+}) async {
+  tester.view.physicalSize = frame.size * dpr;
+  tester.view.devicePixelRatio = dpr;
+  addTearDown(tester.view.reset);
+  if (insets) _setInsets(tester, dpr);
+  tester.platformDispatcher.platformBrightnessTestValue = brightness;
+  addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
+  SharedPreferences.setMockInitialValues(stored);
+  final prefs = await SharedPreferences.getInstance();
+  final spec = themeById(
+    themeId ??
+        (brightness == Brightness.light
+            ? kDefaultLightTheme
+            : kDefaultDarkTheme),
+  );
+  final container = ProviderContainer(
+    overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        codeRainAnimateProvider.overrideWithValue(false),
+        ...overrides,
+      ],
+  );
+  addTearDown(container.dispose);
+  final GoRouter router = container.read(routerProvider);
+  router.go(location);
+  await tester.pumpWidget(
+    UncontrolledProviderScope(
+      container: container,
+      child: MaterialApp.router(
+        debugShowCheckedModeBanner: false,
+        theme: themeData(spec),
+        routerConfig: router,
+        builder: (context, app) => MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(textScale)),
+          child: app!,
+        ),
+      ),
+    ),
+  );
+  for (var i = 0; i < 6; i++) {
+    await tester.pump(const Duration(milliseconds: 100));
   }
 }

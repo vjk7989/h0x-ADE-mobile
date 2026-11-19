@@ -101,12 +101,19 @@ class AgentTile extends StatelessWidget {
         width: 40,
         height: 40,
         alignment: Alignment.center,
+        // 40 dp, radius 10: the state colour at 12 % with a 35 % edge.
         decoration: BoxDecoration(
-          color: tone.withAlpha(30),
-          borderRadius: BorderRadius.circular(12),
+          color: tone.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: tone.withValues(alpha: 0.35)),
         ),
-        child: Text(initials(name),
-            style: HxType.mono.copyWith(color: c.foreground, fontWeight: FontWeight.w600)),
+        child: Text(
+          initials(name),
+          style: HxType.weight(HxType.mono, 600).copyWith(
+            fontSize: 13,
+            color: c.foreground,
+          ),
+        ),
       ),
     );
   }
