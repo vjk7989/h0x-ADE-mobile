@@ -679,13 +679,14 @@ class _SpaceCard extends StatelessWidget {
     );
   }
 
-  Widget _pane(String pane) {
+  Widget _pane(String pane, {bool fill = false}) {
     final s = data.sessionOf(pane);
     return _PaneCard(
       pane: pane,
       session: s,
       conn: null,
       preview: false,
+      expand: fill,
       onTap: s == null ? null : () => onPane(s.terminal),
     );
   }
@@ -704,7 +705,7 @@ class _SpaceCard extends StatelessWidget {
       );
     }
     final perRow = panes.length <= 3 ? panes.length : 2;
-    final height = panes.length == 3 ? 128.0 : 104.0;
+    final height = panes.length == 1 ? 76.0 : 104.0;
     final rows = <Widget>[];
     for (var i = 0; i < panes.length; i += perRow) {
       final slice = panes.sublist(i, (i + perRow).clamp(0, panes.length));
@@ -719,7 +720,7 @@ class _SpaceCard extends StatelessWidget {
                 for (var j = 0; j < perRow; j++) ...[
                   if (j > 0) const SizedBox(width: 8),
                   Expanded(
-                    child: j < slice.length ? _pane(slice[j]) : const SizedBox.shrink(),
+                    child: j < slice.length ? _pane(slice[j], fill: true) : const SizedBox.shrink(),
                   ),
                 ],
               ],
@@ -798,10 +799,23 @@ class _PaneCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: HxType.mono.copyWith(color: c.muted, fontSize: 11.5),
             ),
-          if (preview && conn != null && s != null)
-            Flexible(child: _Preview(conn: conn!, terminal: s.terminal)),
-          if (expand) const Spacer() else const SizedBox(height: 6),
-          HxTag(word, color: tone),
+          // The preview fills the middle; the state tag is pinned at the
+          // bottom. Without a bounded height the pane takes its natural size.
+          if (expand)
+            Expanded(
+              child: preview && conn != null && s != null
+                  ? _Preview(conn: conn!, terminal: s.terminal)
+                  : const SizedBox.shrink(),
+            )
+          else ...[
+            if (preview && conn != null && s != null)
+              _Preview(conn: conn!, terminal: s.terminal),
+            const SizedBox(height: 6),
+          ],
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: HxTag(word, color: tone),
+          ),
         ],
       ),
     );
@@ -815,6 +829,8 @@ class _PaneCard extends StatelessWidget {
   }
 }
 
+/// The last lines of a pane in the theme's terminal colours: a block in the
+/// terminal background, radius 6, mono 10 on 13. As many lines as fit.
 class _Preview extends StatelessWidget {
   const _Preview({required this.conn, required this.terminal});
   final MachineConnection conn;
@@ -822,17 +838,37 @@ class _Preview extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = context.hx.colors;
-    return FutureBuilder<String>(
-      future: conn.read(terminal, lines: 6).catchError((_) => ''),
-      builder: (context, snap) => Padding(
-        padding: const EdgeInsets.only(top: 6),
-        child: Text(
-          snap.data ?? '',
-          maxLines: 6,
-          overflow: TextOverflow.ellipsis,
-          style: HxType.mono.copyWith(fontSize: 11, color: c.muted),
-        ),
+    final t = context.hx.terminal;
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: LayoutBuilder(
+        builder: (context, box) {
+          final lines = box.hasBoundedHeight
+              ? ((box.maxHeight - 12) / 13).floor().clamp(1, 40)
+              : 6;
+          return FutureBuilder<String>(
+            future: conn.read(terminal, lines: lines).catchError((_) => ''),
+            builder: (context, snap) => Container(
+              width: double.infinity,
+              height: box.hasBoundedHeight ? box.maxHeight : null,
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: t.background,
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                snap.data ?? '',
+                maxLines: lines,
+                overflow: TextOverflow.clip,
+                style: HxType.mono.copyWith(
+                  fontSize: 10,
+                  height: 1.3,
+                  color: t.foreground,
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }

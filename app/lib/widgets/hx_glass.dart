@@ -29,7 +29,9 @@ class HxGlass extends StatelessWidget {
     final r = BorderRadius.circular(radius);
     final decoration = dark
         ? BoxDecoration(
-            color: c.raised.withValues(alpha: 0.55),
+            // raised at 55 % over the page, as one opaque colour: a translucent
+            // fill would show the shadow through it as a slab.
+            color: Color.alphaBlend(c.raised.withValues(alpha: 0.55), c.screen),
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -51,6 +53,7 @@ class HxGlass extends StatelessWidget {
             ],
           )
         : BoxDecoration(
+            color: c.screen,
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -67,6 +70,7 @@ class HxGlass extends StatelessWidget {
               BoxShadow(
                 color: const Color(0xFF000000).withValues(alpha: 0.16),
                 blurRadius: 44,
+                spreadRadius: -6,
                 offset: const Offset(0, 18),
               ),
             ],

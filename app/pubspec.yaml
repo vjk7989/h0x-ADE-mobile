@@ -24,6 +24,8 @@ dependencies:
   pointycastle: ^4.0.0
   shared_preferences: ^2.5.6
   share_plus: ^13.3.1
+  # Terms and Privacy links on the account sign-in (the official Flutter plugin).
+  url_launcher: ^6.3.3
   web_socket_channel: ^3.0.3
   qr_flutter: ^4.1.0
 
