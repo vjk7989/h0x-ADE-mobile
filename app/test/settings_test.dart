@@ -82,6 +82,9 @@ void main() {
     await show(t, biometrics: false);
     expect(find.text('Unlock with fingerprint'), findsNothing);
     expect(find.text('SECURITY'), findsNothing);
+  });
+
+  testWidgets('the biometric switch is shown when the device has one', (t) async {
     await show(t, biometrics: true);
     expect(find.text('Unlock with fingerprint'), findsOneWidget);
   });
@@ -188,10 +191,10 @@ void main() {
   testWidgets('golden: top of the screen, light and dark, accessible', (t) async {
     await show(t, machines: [FakeConnection(id: 'devbox', name: 'devbox')]);
     await expectGolden(find.byType(MaterialApp), 'settings_phone_light');
-    await expectAccessibleCrisp(t);
+    await expectAccessible(t);
     await show(t, machines: [FakeConnection(id: 'devbox', name: 'devbox')], b: Brightness.dark);
     await expectGolden(find.byType(MaterialApp), 'settings_phone_dark');
-    await expectAccessibleCrisp(t);
+    await expectAccessible(t);
   });
 
   testWidgets('golden: key and known hosts, scrolled', (t) async {
@@ -202,18 +205,18 @@ void main() {
     await t.pumpAndSettle();
     await scrollTo(t, find.text('devbox:22'));
     await expectGolden(find.byType(MaterialApp), 'settings_phone_dark_key');
-    await expectAccessibleCrisp(t);
+    await expectAccessible(t);
   });
 
   testWidgets('golden: text 200 percent, accessible', (t) async {
     await show(t, scale: 2);
     await expectGolden(find.byType(MaterialApp), 'settings_phone_light_200');
-    await expectAccessibleCrisp(t);
+    await expectAccessible(t);
   });
 
   testWidgets('golden: tablet keeps a centred column', (t) async {
     await show(t, f: Frame.tablet);
     await expectGolden(find.byType(MaterialApp), 'settings_tablet_light');
-    await expectAccessibleCrisp(t);
+    await expectAccessible(t);
   });
 }

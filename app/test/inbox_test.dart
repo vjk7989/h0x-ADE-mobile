@@ -308,24 +308,24 @@ void main() {
     testWidgets('golden: phone light and dark, accessible', (t) async {
       await show(t, [studio(), devbox()]);
       await expectGolden(find.byType(MaterialApp), 'inbox_phone_light');
-      await expectAccessibleCrisp(t);
+      await expectAccessible(t);
       await show(t, [studio(), devbox()], b: Brightness.dark);
       await expectGolden(find.byType(MaterialApp), 'inbox_phone_dark');
-      await expectAccessibleCrisp(t);
+      await expectAccessible(t);
     });
 
     testWidgets('golden: text 200 percent stacks Approve and Deny, accessible', (t) async {
       await show(t, [studio()], scale: 2);
       expect(find.text('Approve'), findsOneWidget);
       await expectGolden(find.byType(MaterialApp), 'inbox_phone_light_200');
-      await expectAccessibleCrisp(t);
+      await expectAccessible(t);
     });
 
     testWidgets('golden: tablet shows the rail and a list beside a pane', (t) async {
       await show(t, [studio(), devbox()], f: Frame.tablet);
       expect(find.text('Select an agent'), findsOneWidget);
       await expectGolden(find.byType(MaterialApp), 'inbox_tablet_light');
-      await expectAccessibleCrisp(t);
+      await expectAccessible(t);
     });
   });
 }

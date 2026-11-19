@@ -69,6 +69,7 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
     m.showSnackBar(SnackBar(
       content: Text(text),
       action: action,
+      persist: false,
       duration: duration ?? const Duration(seconds: 4),
     ));
   }
@@ -137,7 +138,7 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
     final act = await showModalBottomSheet<Object>(
       context: context,
       isScrollControlled: true,
-      builder: (ctx) => _ListsSheet(state: s, machine: c.conn.machine.name, readOnly: s.readOnly),
+      builder: (ctx) => _ListsSheet(state: s, machine: c.conn.machine.name, readOnly: s.offline),
     );
     if (act == null || !mounted) return;
     if (act is TodoIndexEntry) {
@@ -299,18 +300,18 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
                 button: true,
                 label: 'New list',
                 excludeSemantics: true,
-                onTap: s.readOnly ? null : () => _newList(c),
+                onTap: s.offline ? null : () => _newList(c),
                 child: InkWell(
-                  onTap: s.readOnly ? null : () => _newList(c),
+                  onTap: s.offline ? null : () => _newList(c),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(minHeight: 48),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 20),
                       child: Row(children: [
-                        Icon(Icons.add, size: 20, color: s.readOnly ? colors.dim : colors.accent),
+                        Icon(Icons.add, size: 20, color: s.offline ? colors.dim : colors.accent),
                         const SizedBox(width: 12),
                         Text('New list',
-                            style: HxType.body.copyWith(color: s.readOnly ? colors.dim : colors.accent)),
+                            style: HxType.body.copyWith(color: s.offline ? colors.dim : colors.accent)),
                       ]),
                     ),
                   ),
@@ -418,8 +419,8 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
           text: s.error != null
               ? 'Try again when the computer answers.'
               : 'Make your first list here, or in HyperOx on the computer.',
-          action: s.readOnly ? 'Retry' : 'New list',
-          onAction: s.readOnly ? c.load : () => _newList(c),
+          action: s.offline || s.error != null ? 'Retry' : 'New list',
+          onAction: s.offline || s.error != null ? c.load : () => _newList(c),
         ),
       ]);
     } else if (list == null) {
@@ -918,6 +919,7 @@ class _Tick extends StatelessWidget {
     final c = context.hx.colors;
     final r = small ? 9.0 : 11.5;
     return Semantics(
+      key: ValueKey(label),
       button: true,
       checked: done,
       label: label,

@@ -454,8 +454,8 @@ class _StartButton extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => ConstrainedBox(
-        constraints: const BoxConstraints(minWidth: 48),
+  Widget build(BuildContext context) => SizedBox(
+        width: 160,
         child: HxButton(
           label: 'Start agent',
           icon: Icons.play_arrow_outlined,
@@ -644,7 +644,6 @@ class _PaneCard extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 72),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: finished ? null : c.well,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: needs ? c.working : (finished ? c.outline : c.hairline),

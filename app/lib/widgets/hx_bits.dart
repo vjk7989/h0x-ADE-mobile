@@ -105,7 +105,8 @@ class AgentTile extends StatelessWidget {
           color: tone.withAlpha(30),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Text(initials(name), style: HxType.mono.copyWith(color: tone, fontWeight: FontWeight.w600)),
+        child: Text(initials(name),
+            style: HxType.mono.copyWith(color: c.foreground, fontWeight: FontWeight.w600)),
       ),
     );
   }

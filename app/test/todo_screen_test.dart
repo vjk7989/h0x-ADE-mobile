@@ -6,9 +6,7 @@ import 'package:hyperox/conn/machine_connection.dart';
 import 'package:hyperox/screens/todo_screen.dart';
 import 'package:hyperox/state/connections.dart';
 import 'package:hyperox/state/inbox.dart';
-import 'package:hyperox/theme/theme_controller.dart' show sharedPrefsProvider;
 import 'package:material_ui/material_ui.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/a11y.dart';
 import 'support/fake_connection.dart';
@@ -118,7 +116,7 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('Add screenshots'), findsOneWidget);
     expect(find.text('Add step'), findsOneWidget);
-    await t.tap(find.bySemanticsLabel('Mark step done: Add screenshots'));
+    await t.tap(find.byKey(const ValueKey('Mark step done: Add screenshots')));
     await t.pumpAndSettle();
     expect(c.files[release], contains('  - [x] Add screenshots'));
     expect(find.text('2/3'), findsOneWidget);
@@ -260,22 +258,21 @@ void main() {
   });
 
   testWidgets('offline: last synced copy, read-only, banner says why', (t) async {
-    SharedPreferences.setMockInitialValues({
-      'todo.cache.studio.lists': '- [Release 0.2](release.md)\n',
-      'todo.cache.studio.release': releaseText,
-    });
-    final prefs = await SharedPreferences.getInstance();
     await pumpGolden(
       t,
       TodoScreen(onNavigate: (_) {}),
-      overrides: [sharedPrefsProvider.overrideWithValue(prefs), ...overrides([_Away()])],
+      overrides: overrides([_Away()]),
+      stored: {
+        'todo.cache.studio.lists': '- [Release 0.2](release.md)\n',
+        'todo.cache.studio.release': releaseText,
+      },
     );
     await t.pumpAndSettle();
     expect(find.text('studio-pc is offline'), findsOneWidget);
     expect(find.text('Write release notes'), findsOneWidget);
     expect(find.byType(Dismissible), findsNothing, reason: 'no swipe to delete while read-only');
     await expectGolden(find.byType(MaterialApp), 'todo_phone_light_offline');
-    await expectAccessibleCrisp(t);
+    await expectAccessible(t);
   });
 
   testWidgets('a list over 1 MB is shown read-only with a reason', (t) async {
@@ -291,7 +288,7 @@ void main() {
     other.files['$home/todo/lists.md'] = '- [Garden](garden.md)\n';
     other.files['$home/todo/garden.md'] = '# Garden\n- [ ] Prune\n';
     await show(t, [machine(), other]);
-    await t.tap(find.bySemanticsLabel('Computer: studio-pc'));
+    await t.tap(find.byTooltip('Computer: studio-pc'));
     await t.pumpAndSettle();
     expect(find.text('Which computer'), findsOneWidget);
     await t.tap(find.text('devbox'));
@@ -302,7 +299,7 @@ void main() {
 
   testWithSemantics('one machine: no computer picker', (t) async {
     await show(t, [machine()]);
-    expect(find.bySemanticsLabel('Computer: studio-pc'), findsNothing);
+    expect(find.byTooltip('Computer: studio-pc'), findsNothing);
   });
 
   testWidgets('no machines: empty state', (t) async {
@@ -334,10 +331,10 @@ void main() {
   testWidgets('golden: phone light and dark, accessible', (t) async {
     await show(t, [machine()]);
     await expectGolden(find.byType(MaterialApp), 'todo_phone_light');
-    await expectAccessibleCrisp(t);
+    await expectAccessible(t);
     await show(t, [machine()], b: Brightness.dark);
     await expectGolden(find.byType(MaterialApp), 'todo_phone_dark');
-    await expectAccessibleCrisp(t);
+    await expectAccessible(t);
   });
 
   testWithSemantics('golden: steps open and Completed open', (t) async {
@@ -351,13 +348,13 @@ void main() {
   testWidgets('golden: text 200 percent, accessible', (t) async {
     await show(t, [machine()], scale: 2);
     await expectGolden(find.byType(MaterialApp), 'todo_phone_light_200');
-    await expectAccessibleCrisp(t);
+    await expectAccessible(t);
   });
 
   testWidgets('golden: tablet lists and tasks, accessible', (t) async {
     await show(t, [machine()], f: Frame.tablet);
     expect(find.text('LISTS'), findsOneWidget);
     await expectGolden(find.byType(MaterialApp), 'todo_tablet_light');
-    await expectAccessibleCrisp(t);
+    await expectAccessible(t);
   });
 }

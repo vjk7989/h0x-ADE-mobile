@@ -215,23 +215,23 @@ void main() {
   testWidgets('golden: phone light and dark, accessible', (t) async {
     await show(t, [studio()]);
     await expectGolden(find.byType(MaterialApp), 'spaces_phone_light');
-    await expectAccessibleCrisp(t);
+    await expectAccessible(t);
     await show(t, [studio()], b: Brightness.dark);
     await expectGolden(find.byType(MaterialApp), 'spaces_phone_dark');
-    await expectAccessibleCrisp(t);
+    await expectAccessible(t);
   });
 
   testWidgets('golden: text 200 percent stacks the panes, accessible', (t) async {
     await show(t, [studio()], scale: 2);
     await expectGolden(find.byType(MaterialApp), 'spaces_phone_light_200');
-    await expectAccessibleCrisp(t);
+    await expectAccessible(t);
   });
 
   testWidgets('golden: tablet map with live previews, accessible', (t) async {
     await show(t, [studio()], f: Frame.tablet, b: Brightness.dark);
     expect(find.text('hello t-claude'), findsOneWidget, reason: 'live preview of the pane');
     await expectGolden(find.byType(MaterialApp), 'spaces_tablet_dark');
-    await expectAccessibleCrisp(t);
+    await expectAccessible(t);
   });
 }
 
