@@ -62,6 +62,14 @@ Future<void> _close(WidgetTester tester) async {
   await tester.pump();
 }
 
+/// A connection whose state the test drives.
+class _Flaky extends FakeConnection {
+  final drop = StreamController<ConnState>.broadcast(sync: true);
+
+  @override
+  Stream<ConnState> get state => drop.stream;
+}
+
 void main() {
   group('AgentController', () {
     test('output reaches the terminal, one write per frame', () async {
@@ -344,13 +352,27 @@ void main() {
       await _close(tester);
     });
 
-    testWidgets('a dropped connection shows the reconnecting banner', (
+    testWidgets('a dropped connection dims the output and comes back', (
       tester,
     ) async {
-      final fake = FakeConnection();
+      final fake = _Flaky();
       await _open(tester, fake);
-      fake.state; // broadcast: emit through the public hook below
-      (fake as dynamic);
+      fake.drop.add(const Failed('connection lost'));
+      await _frames(tester, 2);
+      expect(find.text('Reconnecting to fake'), findsOneWidget);
+      final h = tester.ensureSemantics();
+      await tester.pump();
+      expect(
+        find.bySemanticsLabel(RegExp(r'Send, unavailable: reconnecting')),
+        findsOneWidget,
+      );
+      h.dispose();
+      fake.drop.add(const Ready());
+      await _frames(tester, 4);
+      fake.emitView('t1', utf8.encode('back
+'));
+      await _frames(tester, 3);
+      expect(find.text('Reconnecting to fake'), findsNothing);
       await _close(tester);
     });
 
