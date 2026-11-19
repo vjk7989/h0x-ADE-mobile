@@ -148,7 +148,7 @@ class _AddMachineScreenState extends ConsumerState<AddMachineScreen> {
       user: user,
       port: port,
       tailscale: _tailscale,
-      corePath: _corePath.text.trim(),
+      corePath: cleanCorePath(_corePath.text),
     );
     if (ref.read(sshMachinesProvider).any(machine.sameTarget)) {
       setState(

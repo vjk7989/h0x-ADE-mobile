@@ -103,7 +103,7 @@ void main() {
           seen?.call(cmd);
           if (cmd.startsWith('sh -c')) return ScriptedProcess(stderr: stderr, code: 1);
           if (cmd.startsWith('powershell')) {
-            return ScriptedProcess(stdout: found ?? '', code: 0);
+            return ScriptedProcess(stdout: 'H0X_OS=windows\r\n${found ?? ''}', code: 0);
           }
           if (cmd.contains('bridge spaces')) {
             return ScriptedProcess(stdout: '[{"name":"a","folder":"C:\\\\x"}]', code: 0);
@@ -137,7 +137,7 @@ void main() {
           "sh : The term 'sh' is not recognized as the name of a cmdlet, function, script file, or operable program.";
       rig.exec = windows(found: spaced, stderr: psError);
       final c = await rig.up();
-      expect(rig.transports.single.commands.last, r'& "G:\Hyper Ox\core\h0x-core.exe" connect');
+      expect(rig.transports.single.commands.last, r"& 'G:\Hyper Ox\core\h0x-core.exe' connect");
       await c.close();
     });
 
@@ -156,7 +156,8 @@ void main() {
       await c.start();
       expect(seen.first, unixCommand('connect', override: r'G:\HyperOx\core\h0x-core.exe'));
       expect(seen[1], windowsProbeCommand(override: r'G:\HyperOx\core\h0x-core.exe'));
-      expect(seen.first, endsWith(r"sh 'G:\HyperOx\core\h0x-core.exe'"));
+      expect(seen.first, endsWith(' sh ${encodeOverride(r'G:\HyperOx\core\h0x-core.exe')}'));
+      expect(seen.first.contains('HyperOx'), isFalse, reason: 'the path is not on the line, only its digits');
       await c.close();
     });
 
@@ -176,10 +177,57 @@ void main() {
       expect(s, isA<CoreMissing>());
     });
 
-    test('a probe that prints a banner but no core is still missing', () async {
+    test('a Windows probe that prints a banner but no core is missing', () async {
       rig.exec = windows(found: 'Welcome to WIN-BOX\r\n');
       final s = await rig.make().start();
       expect(s, isA<CoreMissing>());
+    });
+
+    test('a probe with no Windows marker (a unix box without powershell) keeps the unix error', () async {
+      rig.exec = (cmd) => cmd.startsWith('powershell')
+          ? ScriptedProcess(stderr: 'sh: 1: powershell: not found', code: 127)
+          : ScriptedProcess(stderr: 'bash: line 1: weird failure', code: 2);
+      final s = await rig.make().start();
+      expect(s, isNot(isA<CoreMissing>()));
+      expect((s as Failed).reason, contains('weird failure'));
+    });
+
+    test('Git sh on a Windows PATH found nothing: the Windows search runs, not CoreMissing', () async {
+      rig.exec = (cmd) {
+        if (cmd.startsWith('sh -c')) {
+          return ScriptedProcess(stderr: '$coreNotHere\n$onWindowsMarker\n', code: 127);
+        }
+        if (cmd.startsWith('powershell')) {
+          return ScriptedProcess(stdout: 'H0X_OS=windows\r\nH0X_CORE=G:\\HyperOx\\core\\h0x-core.exe\r\nH0X_SHORT=G:\\HYPERO~1\\core\\H0X-CO~1.EXE\r\n', code: 0);
+        }
+        return FakeCoreProcess(rig.core);
+      };
+      final c = rig.make();
+      expect(await c.start(), isA<Ready>());
+      expect(rig.transports.single.commands.last, r'cmd /d /c G:\HYPERO~1\core\H0X-CO~1.EXE connect');
+      expect(c.machine.os, 'windows');
+      await c.close();
+    });
+
+    test('another language: the shell error is not understood, the probe still finds Windows', () async {
+      const german = 'Der Befehl "sh" ist entweder falsch geschrieben oder konnte nicht gefunden werden.\r\n';
+      const spaced = 'H0X_CORE=G:\\Hyper Ox\\core\\h0x-core.exe\r\nH0X_SHORT=G:\\Hyper Ox\\core\\h0x-core.exe\r\n';
+      final seen = <String>[];
+      // the probe and the launch both start with `powershell`: the first is the probe
+      rig.exec = (cmd) {
+        seen.add(cmd);
+        if (cmd.startsWith('sh -c')) return ScriptedProcess(stderr: german, code: 1);
+        if (cmd.startsWith('powershell') && seen.where((x) => x.startsWith('powershell')).length == 1) {
+          return ScriptedProcess(stdout: 'H0X_OS=windows\r\n$spaced', code: 0);
+        }
+        return FakeCoreProcess(rig.core);
+      };
+      final c = rig.make();
+      expect(await c.start(), isA<Ready>());
+      // shell unknown, path with spaces: the launch is the base64 PowerShell script
+      expect(seen.last, startsWith('powershell -NoProfile -NonInteractive -NoLogo -EncodedCommand '));
+      expect(seen.last, isNot(contains('Hyper Ox')));
+      await c.close();
     });
 
     test('a failure that is not about the core is not reported as missing', () async {
@@ -205,8 +253,10 @@ void main() {
       expect((s as Failed).reason, missingCoreMessage);
     });
 
-    test('cmd.exe "is not recognized" on both lines is a missing core', () async {
-      rig.exec = (_) => ScriptedProcess(stderr: _notRecognized, code: 1);
+    test('cmd.exe "is not recognized", probe finds no core: a missing core', () async {
+      rig.exec = (cmd) => cmd.startsWith('powershell')
+          ? ScriptedProcess(stdout: 'H0X_OS=windows\r\n', code: 0)
+          : ScriptedProcess(stderr: _notRecognized, code: 1);
       final c = rig.make();
       final s = await c.start();
       expect((s as Failed).reason, missingCoreMessage);
@@ -215,9 +265,13 @@ void main() {
     });
 
     test('the Windows line reporting no core (exit 127) is a missing core', () async {
-      rig.exec = (cmd) => cmd.startsWith('sh -c')
-          ? ScriptedProcess(stderr: _notRecognized, code: 1)
-          : ScriptedProcess(stderr: '$coreNotHere \r\n', code: 127);
+      rig.exec = (cmd) {
+        if (cmd.startsWith('sh -c')) return ScriptedProcess(stderr: _notRecognized, code: 1);
+        if (cmd.startsWith('powershell')) {
+          return ScriptedProcess(stdout: 'H0X_OS=windows\r\nH0X_CORE=C:\\a\\h0x-core.exe\r\n', code: 0);
+        }
+        return ScriptedProcess(stderr: '$coreNotHere \r\n', code: 127);
+      };
       final s = await rig.make().start();
       expect((s as Failed).reason, missingCoreMessage);
     });

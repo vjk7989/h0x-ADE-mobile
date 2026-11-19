@@ -109,6 +109,28 @@ void main() {
       expect(run(unixCommand('connect')).exitCode, 127);
     }, skip: skip);
 
+    test('a leading ~/ in the override is the home folder', () {
+      final odd = fakeCore('${home.path}/my tools', 'tilde');
+      expect(odd.startsWith(home.path), isTrue);
+      final r = run(unixCommand('connect', override: '~/my tools/h0x-core'));
+      expect(r.stdout.toString().trim(), 'tilde connect');
+      // ~ alone is the home folder (a folder: skipped, nothing else found)
+      expect(run(unixCommand('connect', override: '~')).exitCode, 127);
+    }, skip: skip);
+
+    test('on Windows (OS=Windows_NT, as Git sh sees it) it also says so; on unix it does not', () {
+      final win = Process.runSync(
+        '/bin/sh',
+        ['-c', unixCommand('connect')],
+        environment: {'HOME': home.path, 'PATH': '/usr/bin:/bin', 'OS': 'Windows_NT'},
+        includeParentEnvironment: false,
+      );
+      expect(win.exitCode, 127);
+      expect(win.stderr.toString().trim().split('\n'), [coreNotHere, onWindowsMarker]);
+      final unix = run(unixCommand('connect'));
+      expect(unix.stderr.toString().trim(), coreNotHere);
+    }, skip: skip);
+
     test('the output of the shell stays clean: no banner of our own', () {
       fakeCore('${home.path}/.local/bin', 'local');
       final r = run(unixCommand('connect'));
@@ -117,21 +139,44 @@ void main() {
   });
 
   group('unix command text', () {
-    test('exact shape, no override', () {
-      expect(
-        unixCommand('connect'),
-        "sh -c 'for p in \"\$1\" \"\$(command -v h0x-core 2>/dev/null)\" "
-        '"\$HOME/.local/bin/h0x-core" "/usr/local/bin/h0x-core" "/opt/homebrew/bin/h0x-core" '
-        '"\$HOME/.local/share/mise/shims/h0x-core" "\$HOME/.nix-profile/bin/h0x-core" '
-        '"/run/current-system/sw/bin/h0x-core" "\$HOME/.cargo/bin/h0x-core"; do '
-        'if [ -n "\$p" ] && [ -f "\$p" ] && [ -x "\$p" ]; then exec "\$p" connect; fi; done; '
-        "echo \"h0x-core is not installed here\" >&2; exit 127' sh ''",
-      );
+    test('shape: the override is the last word, as digits; the candidates in order', () {
+      final cmd = unixCommand('connect');
+      expect(cmd.startsWith("sh -c '"), isTrue);
+      expect(cmd.endsWith("' sh o"), isTrue);
+      final order = [
+        r'"$q"',
+        r'"$(command -v h0x-core 2>/dev/null)"',
+        r'"$HOME/.local/bin/h0x-core"',
+        '"/usr/local/bin/h0x-core"',
+        '"/opt/homebrew/bin/h0x-core"',
+        r'"$HOME/.local/share/mise/shims/h0x-core"',
+        r'"$HOME/.nix-profile/bin/h0x-core"',
+        '"/run/current-system/sw/bin/h0x-core"',
+        r'"$HOME/.cargo/bin/h0x-core"',
+        r'exec "$p" connect',
+        'h0x-core is not installed here',
+      ];
+      var at = -1;
+      for (final part in order) {
+        final i = cmd.indexOf(part);
+        expect(i, greaterThan(at), reason: part);
+        at = i;
+      }
     });
 
-    test('the override is the last word, single-quoted, quotes escaped', () {
-      expect(unixCommand('connect', override: '/opt/h x/core').endsWith("sh '/opt/h x/core'"), isTrue);
-      expect(unixCommand('connect', override: "/o'x").endsWith("sh '/o'\\''x'"), isTrue);
+    test('the override is only digits on the line: nothing for any shell to read', () {
+      for (final o in [r'/opt/h x/core', "/o'x", r'C:\R&D\a^b|c>d<e (x) $x `y` %z% "q"', 'Zoë 核心', '']) {
+        final cmd = unixCommand('connect', override: o);
+        expect(RegExp(r" sh o[0-7]*$").hasMatch(cmd), isTrue, reason: o);
+        expect(cmd.contains(o) && o.isNotEmpty, isFalse, reason: 'the path itself is not on the line: $o');
+      }
+    });
+
+    test('encodeOverride: UTF-8 bytes in octal, three digits each', () {
+      expect(encodeOverride(''), 'o');
+      expect(encodeOverride('abc'), 'o141142143');
+      expect(encodeOverride('é'), 'o303251');
+      expect(encodeOverride('\n'), 'o012');
     });
 
     test('the script itself holds no single quote', () {
@@ -151,6 +196,11 @@ void main() {
     test('the command line has nothing for cmd or PowerShell to quote', () {
       final cmd = windowsProbeCommand(override: r"G:\Hyper Ox\O'Neil\h0x-core.exe");
       expect(RegExp(r'^powershell -NoProfile -NonInteractive -NoLogo -EncodedCommand [A-Za-z0-9+/=]+$').hasMatch(cmd), isTrue);
+    });
+
+    test('the marker is the first thing printed', () {
+      final lines = windowsProbeScript().split('\n');
+      expect(lines.indexWhere((l) => l.contains('H0X_OS=windows')), lessThan(lines.indexWhere((l) => l.contains('H0X_CORE='))));
     });
 
     test('the encoded script is the script (UTF-16LE base64)', () {
@@ -196,6 +246,22 @@ void main() {
       expect(s, contains('Test-Path'));
     });
 
+    test('the probe says it is Windows even when it finds no core', () {
+      expect(isWindowsProbe(windowsProbeScript().contains("Write-Output 'H0X_OS=windows'") ? 'H0X_OS=windows\r\n' : ''), isTrue);
+      expect(isWindowsProbe('H0X_OS=windows\r\n'), isTrue);
+      expect(isWindowsProbe('Welcome to box\r\n'), isFalse);
+      expect(isWindowsProbe(''), isFalse);
+    });
+
+    test('candidates are expanded: %VAR% and a leading ~', () {
+      final s = windowsProbeScript(override: r'%LOCALAPPDATA%\x\h0x-core.exe');
+      expect(s, contains(r'[Environment]::ExpandEnvironmentVariables($p)'));
+      expect(s, contains(r"$p.StartsWith('~')"));
+      expect(s.indexOf('ExpandEnvironmentVariables'), lessThan(s.indexOf('Test-Path')));
+      // the override itself stays a literal in the script: the expansion happens in PowerShell
+      expect(s, contains(r"'%LOCALAPPDATA%\x\h0x-core.exe'"));
+    });
+
     test('parseWindowsProbe', () {
       final f = parseWindowsProbe('H0X_CORE=G:\\HyperOx\\core\\h0x-core.exe\r\nH0X_SHORT=G:\\HYPERO~1\\core\\H0X-CO~1.EXE\r\n');
       expect(f?.path, r'G:\HyperOx\core\h0x-core.exe');
@@ -222,12 +288,30 @@ void main() {
 
     test('a spaced path under cmd is quoted for cmd', () {
       expect(windowsRunCommand(spaced, 'connect', shell: WindowsShell.cmd), r'cmd /d /c ""G:\Hyper Ox\core\h0x-core.exe" connect"');
-      expect(windowsRunCommand(spaced, 'connect'), r'cmd /d /c ""G:\Hyper Ox\core\h0x-core.exe" connect"');
     });
 
-    test('a spaced path under PowerShell is called with &', () {
+    test('cmd metacharacters in the path are escaped with ^ for the login cmd', () {
+      const p = FoundCore(r'G:\R&D (x)\a^b\h0x-core.exe', r'G:\R&D (x)\a^b\h0x-core.exe');
+      expect(windowsRunCommand(p, 'connect', shell: WindowsShell.cmd), r'cmd /d /c ""G:\R^&D ^(x^)\a^^b\h0x-core.exe" connect"');
+    });
+
+    test('a spaced path under PowerShell is a single-quoted literal', () {
       expect(windowsRunCommand(spaced, 'bridge spaces --show --json', shell: WindowsShell.powershell),
-          r'& "G:\Hyper Ox\core\h0x-core.exe" bridge spaces --show --json');
+          r"& 'G:\Hyper Ox\core\h0x-core.exe' bridge spaces --show --json");
+      const odd = FoundCore(r"C:\O'Neil\$x `y`\h0x-core.exe", r"C:\O'Neil\$x `y`\h0x-core.exe");
+      expect(windowsRunCommand(odd, 'connect', shell: WindowsShell.powershell), r"& 'C:\O''Neil\$x `y`\h0x-core.exe' connect");
+    });
+
+    test('an unknown shell gets a launch no shell parses: a base64 PowerShell script', () {
+      final cmd = windowsRunCommand(spaced, 'connect');
+      expect(RegExp(r'^powershell -NoProfile -NonInteractive -NoLogo -EncodedCommand [A-Za-z0-9+/=]+$').hasMatch(cmd), isTrue);
+      expect(decode(cmd), windowsLaunchScript(spaced.path, 'connect'));
+      expect(windowsLaunchScript(spaced.path, 'connect'), "& 'G:\\Hyper Ox\\core\\h0x-core.exe' connect\nexit \$LASTEXITCODE");
+    });
+
+    test('cmd with a %VAR% pair in the path would expand it: launched the encoded way', () {
+      const p = FoundCore(r'C:\%TEMP%\h0x core\h0x-core.exe', r'C:\%TEMP%\h0x core\h0x-core.exe');
+      expect(windowsRunCommand(p, 'connect', shell: WindowsShell.cmd).startsWith('powershell '), isTrue);
     });
 
     test('the shell is read from what it said', () {
@@ -238,6 +322,11 @@ void main() {
       );
       expect(windowsShellFrom('boom'), WindowsShell.unknown);
       expect(windowsShellFrom(''), WindowsShell.unknown);
+      // PowerShell 7: "a name", and no CommandNotFoundException in the concise view
+      expect(windowsShellFrom("sh: The term 'sh' is not recognized as a name of a cmdlet, function, script file, or executable program."),
+          WindowsShell.powershell);
+      // another language: unknown (the probe decides, not the text)
+      expect(windowsShellFrom('Der Befehl "sh" ist entweder falsch geschrieben oder konnte nicht gefunden werden.'), WindowsShell.unknown);
     });
   });
 }
