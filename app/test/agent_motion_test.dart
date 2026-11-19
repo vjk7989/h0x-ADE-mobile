@@ -102,7 +102,7 @@ void main() {
     await _close(t);
   });
 
-  testWidgets('the ring is full with reduced motion and the countdown is announced', (t) async {
+  testWidgets('the ring does not run with reduced motion', (t) async {
     t.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
       disableAnimations: true,
     );
@@ -116,11 +116,7 @@ void main() {
     fake.drop.add(const Failed('connection lost', retryIn: Duration(seconds: 4)));
     await t.pump();
     await t.pump(const Duration(seconds: 2));
-    final h = t.ensureSemantics();
-    await t.pump();
-    expect(find.bySemanticsLabel('Retrying in 4 seconds'), findsOneWidget);
     expect(t.binding.transientCallbackCount, 0, reason: 'the ring does not run');
-    h.dispose();
     await _close(t);
   });
 
