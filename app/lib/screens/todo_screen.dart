@@ -530,6 +530,18 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
     );
   }
 
+  /// While a card is dragged, measure the hole after every frame: it moves
+  /// as the neighbours animate away.
+  void _trackLine() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_dragging) return;
+      final y = _lineTop();
+      if (y != _line) setState(() => _line = y);
+      WidgetsBinding.instance.scheduleFrame();
+      _trackLine();
+    });
+  }
+
   /// The y of the accent line: the middle of the hole the neighbours opened
   /// for the dragged card (or just outside the first or last card).
   double? _lineTop() {
@@ -704,7 +716,10 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
           );
         },
       ),
-      onReorderStart: (_) => setState(() => _dragging = true),
+      onReorderStart: (_) {
+        setState(() => _dragging = true);
+        _trackLine();
+      },
       onReorderEnd: (_) => setState(() => _dragging = false),
       onReorder: (a, b) {
         if (readOnly) return;
@@ -746,15 +761,6 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
           ),
       ],
     );
-    // The hole moves while the neighbours animate: measure after every frame
-    // of a drag until it stops moving.
-    if (_dragging) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || !_dragging) return;
-        final y = _lineTop();
-        if (y != _line) setState(() => _line = y);
-      });
-    }
     final line = _dragging ? _line : null;
     return Listener(
       onPointerMove: (e) {
