@@ -369,8 +369,7 @@ void main() {
       h.dispose();
       fake.drop.add(const Ready());
       await _frames(tester, 4);
-      fake.emitView('t1', utf8.encode('back
-'));
+      fake.emitView('t1', utf8.encode('back\r\n'));
       await _frames(tester, 3);
       expect(find.text('Reconnecting to fake'), findsNothing);
       await _close(tester);
