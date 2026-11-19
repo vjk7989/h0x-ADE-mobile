@@ -221,6 +221,48 @@ void main() {
     await expectAccessible(t);
   });
 
+  // Board states, one golden each (design spaces 04 to 08 and 10).
+  testWidgets('golden: the agent slots sheet, dark', (t) async {
+    await show(t, [studio()], b: Brightness.dark);
+    await t.tap(find.text('Start agent').first);
+    await t.pumpAndSettle();
+    expect(find.text('Start an agent'), findsOneWidget);
+    await expectGolden(find.byType(MaterialApp), 'spaces_slots_dark');
+  });
+
+  testWidgets('golden: the run confirm, light', (t) async {
+    await show(t, [studio()]);
+    await t.tap(find.text('Start agent').first);
+    await t.pumpAndSettle();
+    await t.tap(find.text('Claude Code'));
+    await t.pumpAndSettle();
+    expect(find.text('Start Claude Code?'), findsOneWidget);
+    await expectGolden(find.byType(MaterialApp), 'spaces_confirm_light');
+  });
+
+  testWidgets('golden: no spaces, dark', (t) async {
+    await show(t, [studio(view: const SpacesView())], b: Brightness.dark);
+    await expectGolden(find.byType(MaterialApp), 'spaces_empty_dark');
+  });
+
+  testWidgets('golden: a space with no tabs and an exited pane, light', (t) async {
+    await show(t, [studio()]);
+    await t.ensureVisible(find.text('No tabs: start an agent to open one'));
+    await t.pumpAndSettle();
+    await expectGolden(find.byType(MaterialApp), 'spaces_notabs_light');
+  });
+
+  testWidgets('golden: a core without spaces, dark', (t) async {
+    await show(t, [studio(view: const SpacesView.unsupported())], b: Brightness.dark);
+    await expectGolden(find.byType(MaterialApp), 'spaces_oldcore_dark');
+  });
+
+  testWidgets('golden: offline, last known, dark', (t) async {
+    final c = studio()..spacesError = StateError('not connected: timed out');
+    await show(t, [c], b: Brightness.dark);
+    await expectGolden(find.byType(MaterialApp), 'spaces_offline_dark');
+  });
+
   testWidgets('golden: text 200 percent stacks the panes, accessible', (t) async {
     await show(t, [studio()], scale: 2);
     await expectGolden(find.byType(MaterialApp), 'spaces_phone_light_200');

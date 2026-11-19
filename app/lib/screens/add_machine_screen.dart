@@ -470,7 +470,11 @@ class _Field extends StatelessWidget {
             keyboardType: keyboard,
             autocorrect: false,
             enableSuggestions: false,
-            style: HxType.body.copyWith(fontFamily: 'JetBrainsMono'),
+            // A typed value is foreground, mono 14; the hint stays muted.
+            style: HxType.body.copyWith(
+              fontFamily: 'JetBrainsMono',
+              color: c.foreground,
+            ),
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: HxType.body.copyWith(color: c.muted),

@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart' show debugDisableShadows;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
@@ -16,6 +17,14 @@ enum Frame {
 
   const Frame(this.size);
   final Size size;
+}
+
+/// flutter_test draws every shadow as a hard-edged block, so a soft glass
+/// shadow showed up as a slab. Goldens draw the shadows a phone draws.
+void _realShadows() {
+  final before = debugDisableShadows;
+  debugDisableShadows = false;
+  addTearDown(() => debugDisableShadows = before);
 }
 
 /// A phone has a status bar (32 dp) and a gesture area (24 dp), tokens
@@ -48,6 +57,7 @@ Future<void> pumpGolden(
   tester.view.physicalSize = frame.size * dpr;
   tester.view.devicePixelRatio = dpr;
   addTearDown(tester.view.reset);
+  _realShadows();
   if (insets) _setInsets(tester, dpr);
   tester.platformDispatcher.platformBrightnessTestValue = brightness;
   addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
@@ -107,6 +117,7 @@ Future<void> pumpShellGolden(
   tester.view.physicalSize = frame.size * dpr;
   tester.view.devicePixelRatio = dpr;
   addTearDown(tester.view.reset);
+  _realShadows();
   if (insets) _setInsets(tester, dpr);
   tester.platformDispatcher.platformBrightnessTestValue = brightness;
   addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);

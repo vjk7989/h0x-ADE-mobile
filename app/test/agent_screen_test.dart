@@ -7,10 +7,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hyperox/conn/machine_connection.dart';
 import 'package:hyperox/screens/agent_screen.dart';
 import 'package:hyperox/state/agent_session.dart';
+import 'package:hyperox/state/connections.dart';
+import 'package:hyperox/state/inbox.dart';
 import 'package:hyperox/theme/theme_controller.dart';
 import 'package:hyperox/theme/themes.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:material_ui/material_ui.dart' hide Key;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:xterm/xterm.dart' show TerminalView;
 
 import 'support/a11y.dart';
 import 'support/fake_connection.dart';
@@ -64,11 +67,18 @@ Future<void> _open(
   Frame frame = Frame.phone,
   double dpr = 1.0,
   bool output = true,
+  bool inbox = false,
 }) async {
   _withMessages(fake);
   await pumpGolden(
     tester,
     AgentScreen(machineId: 'fake', terminal: t, connection: fake),
+    overrides: inbox
+        ? [
+            connectionsProvider.overrideWithValue(<MachineConnection>[fake]),
+            inboxPollProvider.overrideWithValue(null),
+          ]
+        : const [],
     brightness: brightness,
     textScale: textScale,
     frame: frame,
@@ -93,6 +103,17 @@ class _Flaky extends FakeConnection {
 
   @override
   Stream<ConnState> get state => drop.stream;
+}
+
+/// Answers every key with a refusal the test chooses, in order.
+class _Refusing extends FakeConnection {
+  _Refusing(List<Reply> replies) : replies = [...replies];
+
+  final List<Reply> replies;
+
+  @override
+  Future<Reply> keys(String terminal, List<Key> keys) async =>
+      replies.isEmpty ? const Done() : replies.removeAt(0);
 }
 
 void main() {
@@ -454,6 +475,79 @@ void main() {
     });
   });
 
+  // Board states, one golden each (design agent 04, 07, 08, 09, 10).
+  group('AgentScreen state goldens', () {
+    Future<void> shot(WidgetTester tester, String name) => expectLater(
+      find.byType(MaterialApp),
+      matchesGoldenFile('goldens/$name.png'),
+    );
+
+    testWidgets('finished, light', (tester) async {
+      final fake = FakeConnection();
+      fake.live = {
+        't1': const Session(
+          terminal: 't1',
+          name: 'build',
+          agent: 'claude',
+          folder: '/home/me/acme-web',
+          status: 'done',
+          live: false,
+        ),
+      };
+      await _open(tester, fake);
+      await _frames(tester, 4);
+      await shot(tester, 'agent_finished_light');
+      await _close(tester);
+    });
+
+    testWidgets('reconnecting, dark', (tester) async {
+      final fake = _Flaky();
+      await _open(tester, fake, brightness: Brightness.dark);
+      fake.drop.add(const Failed('connection lost'));
+      await _frames(tester, 2);
+      await shot(tester, 'agent_reconnect_dark');
+      await _close(tester);
+    });
+
+    testWidgets('selection with the Copy toolbar, light', (tester) async {
+      final fake = FakeConnection();
+      await _open(tester, fake);
+      final view = tester.widget<TerminalView>(find.byType(TerminalView));
+      final buffer = view.terminal.buffer;
+      view.controller!.setSelection(
+        buffer.createAnchor(2, 3),
+        buffer.createAnchor(28, 4),
+      );
+      await _frames(tester, 2);
+      expect(find.text('Copy all'), findsOneWidget);
+      await shot(tester, 'agent_select_light');
+      await _close(tester);
+    });
+
+    testWidgets('locked banner and the rate-limit snackbar, dark', (tester) async {
+      final fake = _Refusing(const [Locked(), RateLimited(12)]);
+      await _open(tester, fake, brightness: Brightness.dark);
+      await tester.tap(find.text('Esc'));
+      await _frames(tester, 2);
+      expect(find.text('Locked on the computer'), findsOneWidget);
+      await tester.tap(find.text('Tab'));
+      await _frames(tester, 3);
+      expect(find.text('Too many requests · try in 12 s'), findsOneWidget);
+      await shot(tester, 'agent_locked_dark');
+      await _close(tester);
+    });
+
+    testWidgets('interrupt confirm dialog open, dark', (tester) async {
+      final fake = FakeConnection();
+      await _open(tester, fake, brightness: Brightness.dark);
+      await tester.tap(find.byTooltip('Interrupt claude'));
+      await _frames(tester, 4);
+      expect(find.text('Interrupt claude?'), findsOneWidget);
+      await shot(tester, 'agent_interrupt_dark');
+      await _close(tester);
+    });
+  });
+
   group('AgentScreen goldens and semantics', () {
     final cases = <String, Future<void> Function(WidgetTester, FakeConnection)>{
       'permission_light': (t, f) => _open(t, f, t: 't2'),
@@ -470,6 +564,7 @@ void main() {
         t: 't2',
         brightness: Brightness.dark,
         frame: Frame.tablet,
+        inbox: true,
       ),
     };
     for (final e in cases.entries) {

@@ -299,6 +299,36 @@ void main() {
       }
     }
 
+    testWidgets('golden: values typed in, dark; values are foreground, hints muted', (
+      tester,
+    ) async {
+      await pumpGolden(
+        tester,
+        const AddMachineScreen(),
+        brightness: Brightness.dark,
+        overrides: overrides,
+      );
+      final hx = HxColors(themeById('darkmatter').roles);
+      // Empty: every field shows a hint, in muted.
+      for (final f in tester.widgetList<TextField>(find.byType(TextField))) {
+        expect(f.decoration!.hintStyle!.color, hx.muted);
+      }
+      final fields = find.byType(TextField);
+      await tester.enterText(fields.at(0), 'devbox.tail3a1f.ts.net');
+      await tester.enterText(fields.at(1), 'dev');
+      await tester.pump();
+      for (final i in [0, 1, 2]) {
+        final style = tester.widget<TextField>(fields.at(i)).style!;
+        expect(style.color, hx.foreground, reason: 'value style of field $i');
+        expect(style.fontFamily, 'JetBrainsMono');
+        expect(style.fontSize, 14);
+      }
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/add_machine_ssh_filled_dark.png'),
+      );
+    });
+
     testWidgets('golden validation errors, dark', (tester) async {
       await pumpGolden(
         tester,

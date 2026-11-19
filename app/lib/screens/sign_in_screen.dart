@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../auth/auth_service.dart';
 import '../config.dart';
@@ -10,6 +11,14 @@ import '../widgets/code_rain.dart';
 import '../widgets/hx.dart';
 import '../widgets/hx_glass.dart';
 import '../widgets/hx_icons.dart';
+
+/// Opens an https link in the browser. Tests override it.
+final urlOpenerProvider = Provider<Future<bool> Function(Uri)>(
+  (ref) => (uri) => launchUrl(uri, mode: LaunchMode.externalApplication),
+);
+
+final kTermsUrl = Uri.parse('https://pavii.tech/terms');
+final kPrivacyUrl = Uri.parse('https://pavii.tech/privacy');
 
 /// Sign in: the account-mode entry (Google, GitHub, email) and the way in
 /// without an account. In the SSH-only build (`kAccountMode` off) the router
@@ -288,19 +297,55 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
 
   Widget _lockLine(BuildContext context) {
     final c = context.hx.colors;
-    return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          HxIcon('lock', size: 14, color: c.muted),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              'Account sessions are end-to-end encrypted.',
-              textAlign: TextAlign.center,
-              style: HxType.caption.copyWith(color: c.muted),
+    final open = ref.read(urlOpenerProvider);
+    Widget link(String label, Uri url) => Semantics(
+      link: true,
+      label: label,
+      excludeSemantics: true,
+      onTap: () => open(url),
+      child: InkWell(
+        onTap: () => open(url),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 48, minWidth: 64),
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Text(
+            label,
+            style: HxType.weight(HxType.bodySm, 500).copyWith(
+              color: c.foreground,
+              decoration: TextDecoration.underline,
+              decorationColor: c.foreground,
             ),
+          ),
+        ),
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              HxIcon('lock', size: 14, color: c.muted),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  'Account sessions are end-to-end encrypted.',
+                  textAlign: TextAlign.center,
+                  style: HxType.caption.copyWith(color: c.muted),
+                ),
+              ),
+            ],
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              link('Terms', kTermsUrl),
+              const SizedBox(width: 8),
+              link('Privacy', kPrivacyUrl),
+            ],
           ),
         ],
       ),

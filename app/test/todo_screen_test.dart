@@ -345,6 +345,81 @@ void main() {
     await expectGolden(find.byType(MaterialApp), 'todo_phone_light_open');
   });
 
+  // Board states, one golden each (design todo 04 to 10 and 13).
+  testWidgets('golden: the list switcher, dark', (t) async {
+    await show(t, [machine()], b: Brightness.dark);
+    await t.tap(find.text('Release 0.2'));
+    await t.pumpAndSettle();
+    expect(find.text('order from todo/lists.md on studio-pc'), findsOneWidget);
+    await expectGolden(find.byType(MaterialApp), 'todo_switcher_dark');
+  });
+
+  testWidgets('golden: the computer picker, one machine offline, light', (t) async {
+    final other = machine(id: 'devbox', name: 'devbox')..setState(const Failed('timed out'));
+    await show(t, [machine(), other]);
+    await t.tap(find.byTooltip('Computer: studio-pc'));
+    await t.pumpAndSettle();
+    expect(find.text('Which computer'), findsOneWidget);
+    await expectGolden(find.byType(MaterialApp), 'todo_computer_light');
+  });
+
+  testWidgets('golden: inline edit with the keyboard open, dark', (t) async {
+    await show(t, [machine()], b: Brightness.dark);
+    // The keyboard: 280 dp of inset.
+    t.view.viewInsets = const FakeViewPadding(bottom: 280);
+    addTearDown(t.view.resetViewInsets);
+    await t.tap(find.text('Update the app icon'));
+    await t.pump(const Duration(milliseconds: 50));
+    await t.tap(find.text('Update the app icon'));
+    await t.pumpAndSettle();
+    await expectGolden(find.byType(MaterialApp), 'todo_edit_dark');
+  });
+
+  testWidgets('golden: a drag in progress with the drop line, light', (t) async {
+    await show(t, [machine()]);
+    final g = await t.startGesture(t.getCenter(find.text('Book a design review')));
+    await t.pump(const Duration(milliseconds: 600));
+    await g.moveBy(const Offset(0, -140));
+    await t.pump(const Duration(milliseconds: 100));
+    await expectGolden(find.byType(MaterialApp), 'todo_reorder_light');
+    await g.up();
+    await t.pumpAndSettle();
+  });
+
+  testWidgets('golden: the undo snackbar after a delete, dark', (t) async {
+    await show(t, [machine()], b: Brightness.dark);
+    await t.drag(find.text('Update the app icon'), const Offset(-400, 0));
+    await t.pumpAndSettle();
+    expect(find.text('Undo'), findsOneWidget);
+    await expectGolden(find.byType(MaterialApp), 'todo_undo_dark');
+    await t.pump(const Duration(seconds: 7));
+    await t.pumpAndSettle();
+  });
+
+  testWidgets('golden: a list with no tasks, light', (t) async {
+    final c = machine();
+    c.files[lists] = '- [Reading](reading.md)\n';
+    await show(t, [c]);
+    expect(find.text('No tasks yet. Add one above.'), findsOneWidget);
+    await expectGolden(find.byType(MaterialApp), 'todo_empty_light');
+  });
+
+  testWidgets('golden: everything done, dark', (t) async {
+    final c = machine();
+    c.files[lists] = '- [Home](home.md)\n';
+    await show(t, [c], b: Brightness.dark);
+    expect(find.text('All done for today'), findsOneWidget);
+    await expectGolden(find.byType(MaterialApp), 'todo_alldone_dark');
+  });
+
+  testWidgets('golden: an unreadable list is read-only, light', (t) async {
+    final c = machine();
+    c.files[release] = '# Big\n${'- [ ] x\n' * 140000}';
+    await show(t, [c]);
+    expect(find.text("This list can't be read"), findsOneWidget);
+    await expectGolden(find.byType(MaterialApp), 'todo_error_light');
+  });
+
   testWidgets('golden: text 200 percent, accessible', (t) async {
     await show(t, [machine()], scale: 2);
     await expectGolden(find.byType(MaterialApp), 'todo_phone_light_200');
