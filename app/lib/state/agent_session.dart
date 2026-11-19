@@ -167,8 +167,9 @@ class AgentController extends ChangeNotifier {
 
   Future<void> _detach() async {
     _settle?.cancel();
-    await _bytesSub?.cancel();
-    await _sizesSub?.cancel();
+    // Not awaited: cancelling must never hold up the next attach.
+    unawaited(_bytesSub?.cancel());
+    unawaited(_sizesSub?.cancel());
     _bytesSub = _sizesSub = null;
     final v = _view;
     _view = null;
