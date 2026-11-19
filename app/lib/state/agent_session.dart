@@ -44,6 +44,9 @@ class AgentController extends ChangeNotifier {
   final Terminal terminal = Terminal(maxLines: 5000);
   final TerminalController selection = TerminalController();
 
+  /// DEBUG trace (temporary).
+  final List<String> trace = [];
+
   AgentPhase phase = AgentPhase.attaching;
   Session? session;
   TermSize? size;
@@ -75,6 +78,7 @@ class AgentController extends ChangeNotifier {
   }
 
   Future<void> _attach() async {
+    trace.add('attach');
     phase = AgentPhase.attaching;
     error = null;
     _notify();
@@ -136,6 +140,7 @@ class AgentController extends ChangeNotifier {
   }
 
   void _onViewDone() {
+    trace.add('viewDone phase=$phase');
     if (_disposed) return;
     if (phase != AgentPhase.finished) {
       phase = AgentPhase.reconnecting;
@@ -144,6 +149,7 @@ class AgentController extends ChangeNotifier {
   }
 
   void _onState(ConnState s) {
+    trace.add('state ${s.runtimeType} phase=$phase');
     if (_disposed) return;
     if (s is Ready) {
       // Back after a drop: replay from the top.

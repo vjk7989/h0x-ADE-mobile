@@ -263,7 +263,7 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
                 child: HxBanner(
                   kind: HxBannerKind.info,
                   title: 'Reconnecting to ${a.conn.machine.name}',
-                  message: a.error ?? 'Output so far stays here.',
+                  message: a.trace.join(' | '), // DEBUG temporary
                 ),
               ),
             if (_locked != null)
