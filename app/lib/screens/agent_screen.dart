@@ -103,13 +103,15 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
   Future<void> _handle(Future<Reply> call) async {
     final a = _agent!;
     var r = await call;
-    while (r is NeedsConfirm) {
+    while (true) {
+      final pending = r;
+      if (pending is! NeedsConfirm) break;
       if (!mounted) return;
       final ok = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Confirm'),
-          content: Text('Do you want to ${r is NeedsConfirm ? r.what : ''}?'),
+          content: Text('Do you want to ${pending.what}?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -123,7 +125,7 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
         ),
       );
       if (ok != true) return;
-      r = await a.confirm((r as NeedsConfirm).token);
+      r = await a.confirm(pending.token);
     }
     if (!mounted) return;
     switch (r) {
