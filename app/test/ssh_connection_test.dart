@@ -151,7 +151,7 @@ void main() {
 
     test('the override reaches the unix command and the Windows probe', () async {
       final seen = <String>[];
-      rig.exec = windows(found: core, seen: seen);
+      rig.exec = windows(found: core, seen: seen.add);
       final c = rig.make(corePath: r'G:\HyperOx\core\h0x-core.exe');
       await c.start();
       expect(seen.first, unixCommand('connect', override: r'G:\HyperOx\core\h0x-core.exe'));
