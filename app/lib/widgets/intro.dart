@@ -15,8 +15,9 @@ import 'code_rain.dart';
 import 'hx.dart';
 
 /// The mark of the native splash and the launcher icon, in dp inside the
-/// 240 dp splash box (tools/gen_icons.py: step 2.06 of a 108 dp canvas).
-const double kIntroStep = 2.06 * 240 / 108;
+/// 288 dp splash icon (Android 12 draws an icon with no background at 288 dp;
+/// tools/gen_icons.py: step 2.06 of a 108 dp canvas).
+const double kIntroStep = 2.06 * 288 / 108;
 const double kIntroMarkWidth = 21 * kIntroStep;
 const double kIntroMarkHeight = 25 * kIntroStep;
 

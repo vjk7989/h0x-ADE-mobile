@@ -130,13 +130,16 @@ class HxContainerPage<T> extends CustomTransitionPage<T> {
             child,
           );
         }
-        final t = (reversing
-                ? HxMotion.emphasizedAccel
-                : HxMotion.emphasizedDecel)
-            .transform(animation.value);
+        // The rect grows from the row toward the screen, radius to 0. The
+        // card fill covers the row's content over the first 35 % (the row
+        // fades out), and the page fades in inside the rect from 35 %. Back
+        // runs it the other way: the fill leaves over the last 30 %, so the
+        // row's own content is back and there is never an empty card.
+        final v = animation.value;
+        final t = HxMotion.standard.transform(v);
         final rect = Rect.lerp(now ?? origin.rect, Offset.zero & size, t)!;
-        // The page shows through from 30 % of the way.
-        final page = const Interval(0.3, 1).transform(t);
+        final fill = (v / (reversing ? 0.3 : 0.35)).clamp(0.0, 1.0);
+        final page = ((v - 0.35) / 0.65).clamp(0.0, 1.0);
         return Stack(
           children: [
             Positioned.fromRect(
@@ -144,7 +147,7 @@ class HxContainerPage<T> extends CustomTransitionPage<T> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(origin.radius * (1 - t)),
                 child: ColoredBox(
-                  color: origin.color,
+                  color: origin.color.withValues(alpha: fill),
                   child: OverflowBox(
                     alignment: Alignment.topLeft,
                     minWidth: size.width,
