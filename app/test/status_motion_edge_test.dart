@@ -100,8 +100,8 @@ void main() {
     testWidgets('a slot freed by scrolling goes to a visible row that waited', (t) async {
       final controller = ScrollController();
       addTearDown(controller.dispose);
-      // Rows at 0, 40, 80 (they take the 3 slots), a gap, then rows at 200
-      // and 240 that wait with a static ring.
+      // Under the 32 dp status bar inset: rows at 32, 72, 112 (they take the
+      // 3 slots), a gap, then rows at 232 and 272 that wait with a static ring.
       await _pump(
         t,
         Scaffold(
@@ -122,7 +122,7 @@ void main() {
       await t.pump(const Duration(milliseconds: 100));
       expect(StatusMotion.activePulses, 3);
       // The first three scroll out; the two waiting rows stay on screen.
-      controller.jumpTo(150);
+      controller.jumpTo(200);
       await t.pump();
       await t.pump(const Duration(milliseconds: 100));
       expect(
@@ -168,10 +168,11 @@ void main() {
         ),
       );
       await t.pump(const Duration(milliseconds: 100));
-      controller.jumpTo(39);
+      // The row sits at 32..72 (the list pads for the 32 dp status bar).
+      controller.jumpTo(71);
       await t.pump();
       expect(StatusMotion.activePulses, 1, reason: '1 dp of the row is still visible');
-      controller.jumpTo(41);
+      controller.jumpTo(73);
       await t.pump();
       expect(StatusMotion.activePulses, 0, reason: 'fully scrolled out');
     });

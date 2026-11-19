@@ -94,6 +94,15 @@ Widget _scene(
 
 Finder get _clip => find.byType(ClipRRect);
 
+/// "Remove animations" as the phone sets it: MediaQuery says reduced, and
+/// the framework also runs every controller 20 times faster.
+void _reduce(WidgetTester t) {
+  t.platformDispatcher.accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+    disableAnimations: true,
+  );
+  addTearDown(t.platformDispatcher.clearAccessibilityFeaturesTestValue);
+}
+
 /// The page's own opacity (the nearest Opacity above it).
 double _pageOpacity(WidgetTester t) => t
     .widget<Opacity>(find.ancestor(of: find.text('page'), matching: find.byType(Opacity)).first)
@@ -182,6 +191,7 @@ void main() {
     });
 
     testWidgets('reduced motion: a fade of at most 100 ms, no rect, no slide', (t) async {
+      _reduce(t);
       final (ctrl, sec) = _controllers(t);
       await t.pumpWidget(_scene(ctrl, sec, reduce: true));
       expect(_clip, findsNothing, reason: 'no container rect when reduced');
@@ -197,6 +207,7 @@ void main() {
     });
 
     testWidgets('reduced motion back: also at most 100 ms', (t) async {
+      _reduce(t);
       final (ctrl, sec) = _controllers(t, value: 1);
       await t.pumpWidget(_scene(ctrl, sec, reduce: true));
       ctrl.reverse();

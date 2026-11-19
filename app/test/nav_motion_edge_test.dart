@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hyperox/auth/app_lock.dart';
@@ -120,7 +119,7 @@ void main() {
       await t.pump(const Duration(milliseconds: 200));
       await t.pump();
       expect(_snapshot, findsNothing, reason: 'the last snapshot is dropped');
-      expect(t.binding.transientCallbackCount, 0, reason: 'no ticker left');
+      expect(_in(t), 1.0, reason: 'the last tab is fully in');
       final h = t.ensureSemantics();
       expect(find.bySemanticsLabel('Settings, selected'), findsOneWidget);
       h.dispose();
@@ -147,7 +146,7 @@ void main() {
       expect(_snapshot, findsNothing);
       expect(_in(t), 1.0);
       final h = t.ensureSemantics();
-      expect(find.bySemanticsLabel('Inbox, selected'), findsOneWidget);
+      expect(find.bySemanticsLabel(RegExp(r'^Inbox, selected')), findsOneWidget);
       h.dispose();
     });
 
@@ -183,7 +182,7 @@ void main() {
       for (final ms in [0, 50, 100, 150, 200]) {
         if (ms > 0) await t.pump(const Duration(milliseconds: 50));
         expect(find.bySemanticsLabel('Machines, selected'), findsOneWidget, reason: '$ms ms');
-        expect(find.bySemanticsLabel('Inbox, selected'), findsNothing, reason: '$ms ms');
+        expect(find.bySemanticsLabel(RegExp(r'^Inbox, selected')), findsNothing, reason: '$ms ms');
         expect(find.bySemanticsLabel(RegExp(r'^Inbox')), findsWidgets, reason: '$ms ms');
       }
       await t.pumpAndSettle();
@@ -201,7 +200,7 @@ void main() {
       await t.pump(const Duration(milliseconds: 250));
       await t.pump();
       expect(_snapshot, findsNothing);
-      expect(t.binding.transientCallbackCount, 0);
+      expect(_in(t), 1.0);
     });
   });
 

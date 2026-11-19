@@ -163,8 +163,7 @@ void main() {
       final fake = _Flaky();
       await _open(t, fake);
       fake.drop.add(const Ready());
-      fake.emitView('t2', utf8.encode('output
-'));
+      fake.emitView('t2', utf8.encode('output\r\n'));
       await t.pump(const Duration(milliseconds: 1700));
       fake.drop.add(const Failed('connection lost', retryIn: Duration(seconds: 4)));
       await t.pump();

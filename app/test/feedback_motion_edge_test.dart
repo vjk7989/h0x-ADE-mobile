@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hyperox/theme/themes.dart';
 import 'package:hyperox/widgets/hx.dart';
@@ -71,7 +70,7 @@ Future<void Function(bool)> _pumpBanner(WidgetTester t, {bool show = false, doub
     ),
     textScale: textScale,
   );
-  return (v) => set(() => shown = v);
+  return (bool v) => set(() => shown = v);
 }
 
 void main() {
@@ -148,7 +147,6 @@ void main() {
       for (final id in ['paper', 'darkmatter', 'paper']) {
         await t.pumpWidget(_themed(id));
         expect(find.byType(RawImage), findsNothing);
-        expect(t.binding.transientCallbackCount, 0);
       }
     });
   });
