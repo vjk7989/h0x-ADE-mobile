@@ -329,7 +329,7 @@ class _SpacesScreenState extends ConsumerState<SpacesScreen> {
                 const _NoTabs()
               else
                 SizedBox(
-                  height: (MediaQuery.sizeOf(context).height - 200).clamp(240.0, 680.0),
+                  height: (MediaQuery.sizeOf(context).height - 340).clamp(240.0, 680.0),
                   child: _widePanes(conn, data, space.tabs[ti].panes),
                 ),
             ],
