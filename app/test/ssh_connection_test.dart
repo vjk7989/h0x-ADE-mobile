@@ -156,7 +156,8 @@ void main() {
       await c.start();
       expect(seen.first, unixCommand('connect', override: r'G:\HyperOx\core\h0x-core.exe'));
       expect(seen[1], windowsProbeCommand(override: r'G:\HyperOx\core\h0x-core.exe'));
-      expect(seen.first, endsWith(r"sh 'G:\HyperOx\core\h0x-core.exe'"));
+      expect(seen.first, endsWith(' sh ${encodeOverride(r'G:\HyperOx\core\h0x-core.exe')}'));
+      expect(seen.first.contains('HyperOx'), isFalse, reason: 'the path is not on the line, only its digits');
       await c.close();
     });
 
@@ -212,7 +213,15 @@ void main() {
       const german = 'Der Befehl "sh" ist entweder falsch geschrieben oder konnte nicht gefunden werden.\r\n';
       const spaced = 'H0X_CORE=G:\\Hyper Ox\\core\\h0x-core.exe\r\nH0X_SHORT=G:\\Hyper Ox\\core\\h0x-core.exe\r\n';
       final seen = <String>[];
-      rig.exec = windows(found: spaced, stderr: german, seen: seen.add);
+      // the probe and the launch both start with `powershell`: the first is the probe
+      rig.exec = (cmd) {
+        seen.add(cmd);
+        if (cmd.startsWith('sh -c')) return ScriptedProcess(stderr: german, code: 1);
+        if (cmd.startsWith('powershell') && seen.where((x) => x.startsWith('powershell')).length == 1) {
+          return ScriptedProcess(stdout: 'H0X_OS=windows\r\n$spaced', code: 0);
+        }
+        return FakeCoreProcess(rig.core);
+      };
       final c = rig.make();
       expect(await c.start(), isA<Ready>());
       // shell unknown, path with spaces: the launch is the base64 PowerShell script
