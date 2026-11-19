@@ -272,14 +272,19 @@ enum HxBannerKind { error, info, offline, warn }
 
 /// A strip announced to the screen reader as it appears. Text stays
 /// `foreground`; the state colour is on the icon and the edge (tokens rule 3).
-class HxBanner extends StatelessWidget {
+class HxBanner extends StatefulWidget {
   const HxBanner({
     super.key,
     required this.title,
     required this.message,
     this.kind = HxBannerKind.error,
     this.trailing,
+    this.ghost = false,
   });
+
+  /// A copy shown while a removed banner fades out: no grow-in, no ghost of
+  /// its own.
+  final bool ghost;
 
   final String title;
   final String message;
@@ -289,7 +294,66 @@ class HxBanner extends StatelessWidget {
   final Widget? trailing;
 
   @override
+  State<HxBanner> createState() => _HxBannerState();
+}
+
+class _HxBannerState extends State<HxBanner> {
+  OverlayState? _overlay;
+  Rect? _rect;
+  var _watching = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _overlay = Overlay.maybeOf(context);
+  }
+
+  /// Keeps the banner's last place on screen, for its exit.
+  void _remember() {
+    if (!mounted) return;
+    final box = context.findRenderObject();
+    if (box is RenderBox && box.attached && box.hasSize) {
+      _rect = box.localToGlobal(Offset.zero) & box.size;
+    }
+    _watching = false;
+  }
+
+  @override
+  void dispose() {
+    // The banner is already out of the tree: a copy of it fades out and
+    // collapses in the overlay over 160 ms (emphasized accel).
+    final overlay = _overlay;
+    final rect = _rect;
+    if (!widget.ghost && overlay != null && overlay.mounted && rect != null) {
+      late OverlayEntry entry;
+      entry = OverlayEntry(
+        builder: (context) => _BannerGhost(
+          rect: rect,
+          onDone: () => entry.remove(),
+          child: HxBanner(
+            title: widget.title,
+            message: widget.message,
+            kind: widget.kind,
+            trailing: widget.trailing,
+            ghost: true,
+          ),
+        ),
+      );
+      overlay.insert(entry);
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (!_watching) {
+      _watching = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _remember());
+    }
+    final title = widget.title;
+    final message = widget.message;
+    final kind = widget.kind;
+    final trailing = widget.trailing;
     final c = context.hx.colors;
     final tone = switch (kind) {
       HxBannerKind.error => c.blocked,
@@ -303,24 +367,21 @@ class HxBanner extends StatelessWidget {
       HxBannerKind.warn => 'triangle',
     };
     // It grows in with a fade and an 8 dp slide down (200 ms, emphasized
-    // decel); with reduced motion it is simply there.
+    // decel), clipped while it grows; with reduced motion it is simply there.
     return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
+      tween: Tween(begin: widget.ghost ? 1 : 0, end: 1),
       duration: HxMotion.d(context, HxMotion.stateChange, fade: true),
       curve: HxMotion.emphasizedDecel,
       builder: (context, t, child) => Opacity(
         opacity: t.clamp(0.0, 1.0),
-        child: Align(
-          heightFactor: t.clamp(0.0, 1.0),
-          alignment: Alignment.topCenter,
-          child: Transform.translate(offset: Offset(0, -8 * (1 - t)), child: child),
+        child: ClipRect(
+          child: Align(
+            heightFactor: t.clamp(0.0, 1.0),
+            alignment: Alignment.topCenter,
+            child: Transform.translate(offset: Offset(0, -8 * (1 - t)), child: child),
+          ),
         ),
       ),
-      child: Semantics(
-      liveRegion: true,
-      container: true,
-      label: '$title. $message',
-      excludeSemantics: true,
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -331,33 +392,96 @@ class HxBanner extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            HxIcon(icon, color: tone, size: 20),
-            const SizedBox(width: 10),
+            // The text reads as one label; the trailing widget keeps its own.
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: HxType.bodyLg.copyWith(fontSize: 14)),
-                  const SizedBox(height: 2),
-                  Text(message, style: HxType.caption),
-                ],
+              child: Semantics(
+                liveRegion: true,
+                container: true,
+                label: '$title. $message',
+                excludeSemantics: true,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    HxIcon(icon, color: tone, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(title, style: HxType.bodyLg.copyWith(fontSize: 14)),
+                          const SizedBox(height: 2),
+                          Text(message, style: HxType.caption),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+            if (trailing != null) ...[const SizedBox(width: 8), trailing],
           ],
         ),
-      ),
       ),
     );
   }
 }
 
-double _contrast(Color a, Color b) {
-  final la = a.computeLuminance();
-  final lb = b.computeLuminance();
-  final hi = la > lb ? la : lb;
-  final lo = la > lb ? lb : la;
-  return (hi + 0.05) / (lo + 0.05);
+/// A removed banner, drawn over where it was: it fades out and collapses
+/// (160 ms, emphasized accel), then removes itself.
+class _BannerGhost extends StatefulWidget {
+  const _BannerGhost({required this.rect, required this.onDone, required this.child});
+
+  final Rect rect;
+  final VoidCallback onDone;
+  final Widget child;
+
+  @override
+  State<_BannerGhost> createState() => _BannerGhostState();
+}
+
+class _BannerGhostState extends State<_BannerGhost> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 160),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_c.isAnimating || _c.value > 0) return;
+    // Reduced motion: gone at once.
+    if (HxMotion.reduced(context)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => widget.onDone());
+      return;
+    }
+    _c.forward().whenComplete(widget.onDone);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Positioned.fromRect(
+    rect: widget.rect,
+    child: IgnorePointer(
+      child: AnimatedBuilder(
+        animation: _c,
+        builder: (context, child) {
+          final t = HxMotion.emphasizedAccel.transform(_c.value);
+          return Opacity(
+            opacity: 1 - t,
+            child: ClipRect(
+              child: Align(heightFactor: 1 - t, alignment: Alignment.topCenter, child: child),
+            ),
+          );
+        },
+        child: widget.child,
+      ),
+    ),
+  );
 }
 
 /// The accent, moved toward white or black until it reads at 4.5:1 on

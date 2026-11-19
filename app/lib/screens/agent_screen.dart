@@ -1190,7 +1190,7 @@ class _RetryRingState extends State<_RetryRing> with SingleTickerProviderStateMi
   Widget build(BuildContext context) {
     final c = context.hx.colors;
     return Semantics(
-      label: 'Retrying in ${widget.total.inSeconds} seconds',
+      label: 'Retrying in ${widget.total.inSeconds} ${widget.total.inSeconds == 1 ? 'second' : 'seconds'}',
       excludeSemantics: true,
       child: SizedBox(
         width: 28,

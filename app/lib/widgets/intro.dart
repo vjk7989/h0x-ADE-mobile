@@ -100,6 +100,8 @@ class _HxIntroState extends State<HxIntro> with SingleTickerProviderStateMixin {
     HxIntro.firstFrame().then((_) {
       if (!mounted) return;
       _log('firstFrameRasterized');
+      // A tap before this frame already started the hand-off: keep it.
+      if (_c.isAnimating || _c.value > 0) return;
       _log('start');
       _c.forward(from: 0);
     });

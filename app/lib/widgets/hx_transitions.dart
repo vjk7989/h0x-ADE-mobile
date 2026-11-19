@@ -15,9 +15,16 @@ class HxRowRegistry {
 
   /// The row's rect in the screen, or null when it is not on screen.
   static Rect? rectOf(String id) {
-    final box = _keys[id]?.currentContext?.findRenderObject();
-    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
-    return box.localToGlobal(Offset.zero) & box.size;
+    final ctx = _keys[id]?.currentContext;
+    // A row removed mid-transition is an inactive element: no rect.
+    if (ctx == null || !ctx.mounted) return null;
+    try {
+      final box = ctx.findRenderObject();
+      if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+      return box.localToGlobal(Offset.zero) & box.size;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// What the router gets as `extra` when it opens [id] from its row.

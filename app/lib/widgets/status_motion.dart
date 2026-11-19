@@ -57,6 +57,25 @@ mixin VisibleTicker<T extends StatefulWidget> on State<T>, TickerProviderStateMi
 const kMaxPulses = 3;
 int _pulsing = 0;
 
+/// Pulses that are on screen and want to run but found no free slot.
+final _waiting = <_NeedsYouPulseState>{};
+
+/// A slot was freed: hand it to a waiting pulse that is still on screen.
+void _offerSlot() {
+  for (final w in [..._waiting]) {
+    if (_pulsing >= kMaxPulses) return;
+    if (!w.mounted) {
+      _waiting.remove(w);
+      continue;
+    }
+    // Not during a build or dispose: the next frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (w.mounted && _pulsing < kMaxPulses) w.setState(w._sync);
+    });
+    return;
+  }
+}
+
 class StatusMotion {
   StatusMotion._();
 
@@ -95,9 +114,13 @@ class _NeedsYouPulseState extends State<NeedsYouPulse>
     if (want && !_owns && _pulsing < kMaxPulses) {
       _pulsing++;
       _owns = true;
+      _waiting.remove(this);
       _c.repeat();
-    } else if (!want && _owns) {
-      _release();
+    } else if (want && !_owns) {
+      _waiting.add(this); // no slot now: wait for one
+    } else if (!want) {
+      _waiting.remove(this);
+      if (_owns) _release();
     }
   }
 
@@ -105,6 +128,7 @@ class _NeedsYouPulseState extends State<NeedsYouPulse>
     _pulsing--;
     _owns = false;
     _c.stop();
+    _offerSlot();
   }
 
   @override
@@ -120,7 +144,12 @@ class _NeedsYouPulseState extends State<NeedsYouPulse>
 
   @override
   void dispose() {
-    if (_owns) _pulsing--;
+    _waiting.remove(this);
+    if (_owns) {
+      _pulsing--;
+      _owns = false;
+      _offerSlot();
+    }
     _c.dispose();
     super.dispose();
   }
