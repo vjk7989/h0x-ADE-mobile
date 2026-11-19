@@ -6,11 +6,19 @@ import 'package:hyperox/conn/machine_connection.dart';
 /// contract fixture: t1 working, t2 blocked on a permission, t3 blocked on a
 /// question; reading t1 gives "hello t1".
 class FakeConnection implements MachineConnection {
-  FakeConnection({this.mode = ConnMode.ssh}) {
-    _state.add(const Ready());
+  FakeConnection({
+    this.mode = ConnMode.ssh,
+    this.id = 'fake',
+    this.name = 'fake',
+    Map<String, Session>? sessions,
+  }) {
+    if (sessions != null) live = sessions;
   }
 
   final ConnMode mode;
+  final String id;
+  final String name;
+  ConnState _last = const Ready();
   final _state = StreamController<ConnState>.broadcast(sync: true);
   final _notices = StreamController<Notice>.broadcast(sync: true);
   final _views = <String, StreamController<List<int>>>{};
@@ -42,10 +50,19 @@ class FakeConnection implements MachineConnection {
 
   @override
   MachineInfo get machine =>
-      MachineInfo(id: 'fake', name: 'fake', os: 'linux', mode: mode, online: !closed);
+      MachineInfo(id: id, name: name, os: 'linux', mode: mode, online: !closed && _last is Ready);
 
   @override
-  Stream<ConnState> get state => _state.stream;
+  Stream<ConnState> get state => Stream<ConnState>.multi((c) {
+        c.add(_last);
+        final sub = _state.stream.listen(c.add, onDone: c.close);
+        c.onCancel = sub.cancel;
+      });
+
+  void setState(ConnState s) {
+    _last = s;
+    _state.add(s);
+  }
 
   void emitNotice(Notice n) => _notices.add(n);
 

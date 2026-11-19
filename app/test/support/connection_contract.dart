@@ -67,12 +67,8 @@ void connectionContract(String name, Future<MachineConnection> Function() make) 
       expect(home, isNotEmpty);
       final path = '$home/todo/contract.md';
       expect(await c.readFile(path), isNull);
-      await c.writeFile(path, '# T
-- [ ] a
-');
-      expect(await c.readFile(path), '# T
-- [ ] a
-');
+      await c.writeFile(path, '# T\n- [ ] a\n');
+      expect(await c.readFile(path), '# T\n- [ ] a\n');
       await c.writeFile(path, '');
       expect(await c.readFile(path), '');
     });

@@ -12,8 +12,7 @@ List<String> linesKeepEnds(String t) {
   final out = <String>[];
   var start = 0;
   for (var i = 0; i < t.length; i++) {
-    if (t[i] == '
-') {
+    if (t[i] == '\n') {
       out.add(t.substring(start, i + 1));
       start = i + 1;
     }

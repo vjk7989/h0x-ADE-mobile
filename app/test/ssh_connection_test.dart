@@ -347,17 +347,9 @@ void main() {
       final c = await rig.up();
       expect(await c.appHome(), '/home/me/.config/h0x-ade');
       expect(await c.readFile('/x/none.md'), isNull);
-      await c.writeFile('/x/a.md', '# A
-- [ ] one
-- [x] two
-- [ ] three
-');
+      await c.writeFile('/x/a.md', '# A\n- [ ] one\n- [x] two\n- [ ] three\n');
       rig.core.pageLines = 2;
-      expect(await c.readFile('/x/a.md'), '# A
-- [ ] one
-- [x] two
-- [ ] three
-');
+      expect(await c.readFile('/x/a.md'), '# A\n- [ ] one\n- [x] two\n- [ ] three\n');
       await c.writeFile('/x/e.md', '');
       expect(await c.readFile('/x/e.md'), '');
       await c.close();

@@ -193,10 +193,10 @@ class CoreRpc {
     final channel = r['channel'] as int;
     final chan = _chans[channel]!;
     final t = (r['terminal'] as Map).cast<String, dynamic>();
-    final cols = t['cols'], rows = t['rows'];
+    final tc = t['cols'], tr = t['rows'];
     return AttachedStream._(
       t,
-      TermSize(cols is int && cols > 0 ? cols : 80, rows is int && rows > 0 ? rows : 24),
+      TermSize(tc is int && tc > 0 ? tc : 80, tr is int && tr > 0 ? tr : 24),
       chan.raw.stream,
       chan.sizes.stream,
       () => _closeChannel(channel, notifyCore: true),

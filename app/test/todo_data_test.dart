@@ -214,8 +214,7 @@ void main() {
       var reads = 0;
       conn.onRead = (p) {
         if (p.endsWith('lists.md') && ++reads == 2) {
-          conn.files[p] = '${conn.files[p]}- [Other](other.md)
-';
+          conn.files[p] = '${conn.files[p]}- [Other](other.md)\n';
         }
       };
       await expectLater(repo.renameList(index.entries.first, 'X'), throwsA(isA<TodoConflict>()));
