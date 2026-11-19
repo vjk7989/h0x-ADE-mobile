@@ -1,3 +1,4 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hyperox/conn/machine_connection.dart';
@@ -6,7 +7,9 @@ import 'package:hyperox/screens/inbox_screen.dart';
 import 'package:hyperox/state/connections.dart';
 import 'package:hyperox/state/inbox.dart';
 import 'package:hyperox/widgets/app_shell.dart';
+import 'package:hyperox/theme/theme_controller.dart' show sharedPrefsProvider;
 import 'package:hyperox/widgets/hx_bits.dart';
+import 'package:hyperox/widgets/hx_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -359,6 +362,100 @@ void main() {
       final bad = devbox()..setState(const Failed('ssh: connect to host devbox port 22: timed out'));
       await show(t, [studio(), bad], b: Brightness.dark);
       await expectGolden(find.byType(MaterialApp), 'inbox_error_dark');
+    });
+
+    // Swipe and long-press actions (design inbox 09), and the touch states.
+    testWidgets('golden: a row swiped open shows Pin and Mark read, light', (t) async {
+      await show(t, [studio(), devbox()]);
+      await t.drag(find.textContaining('Running tests'), const Offset(-220, 0));
+      await t.pumpAndSettle();
+      expect(find.text('Pin'), findsOneWidget);
+      expect(find.text('Mark read'), findsOneWidget);
+      await expectGolden(find.byType(MaterialApp), 'inbox_swipe_light');
+    });
+
+    testWidgets('swipe, then Pin: pinned, persisted, first in its group', (t) async {
+      await show(t, [studio(), devbox()]);
+      // working group by agent: claude (devbox) before opencode (studio)
+      double y(String text) => t.getTopLeft(find.textContaining(text)).dy;
+      expect(y('Editing lib/router.dart'), lessThan(y('Running tests')));
+      await t.drag(find.textContaining('Running tests'), const Offset(-220, 0));
+      await t.pumpAndSettle();
+      await t.tap(find.text('Pin'));
+      await t.pumpAndSettle();
+      final prefs = ProviderScope.containerOf(t.element(find.byType(InboxScreen)))
+          .read(sharedPrefsProvider);
+      expect(prefs.getStringList('inbox.pinned'), ['studio/b']);
+      expect(
+        find.byWidgetPredicate((w) => w is HxIcon && w.name == 'pin'),
+        findsOneWidget,
+      );
+      expect(y('Running tests'), lessThan(y('Editing lib/router.dart')));
+    });
+
+    testWidgets('swipe, then Mark read: the unread dot goes', (t) async {
+      await show(t, [studio()]);
+      final dots = find.byWidgetPredicate(
+        (w) => w is Container && w.decoration is BoxDecoration &&
+            (w.decoration! as BoxDecoration).shape == BoxShape.circle &&
+            w.constraints?.maxWidth == 8,
+      );
+      final before = dots.evaluate().length;
+      await t.drag(find.textContaining('Allow edit'), const Offset(-220, 0));
+      await t.pumpAndSettle();
+      await t.tap(find.text('Mark read'));
+      await t.pumpAndSettle();
+      expect(dots.evaluate().length, lessThan(before));
+    });
+
+    testWidgets('a tap elsewhere closes a swiped row', (t) async {
+      await show(t, [studio()]);
+      await t.drag(find.textContaining('Running tests'), const Offset(-220, 0));
+      await t.pumpAndSettle();
+      expect(find.text('Mark read'), findsOneWidget);
+      await t.tap(find.text('Inbox'));
+      await t.pumpAndSettle();
+      expect(find.text('Mark read'), findsNothing);
+    });
+
+    testWidgets('long-press opens Pin / Mark read as a menu', (t) async {
+      await show(t, [studio()]);
+      await t.longPress(find.textContaining('Running tests'));
+      await t.pumpAndSettle();
+      expect(find.text('Pin'), findsOneWidget);
+      expect(find.text('Mark read'), findsOneWidget);
+      await t.tap(find.text('Pin'));
+      await t.pumpAndSettle();
+      final prefs = ProviderScope.containerOf(t.element(find.byType(InboxScreen)))
+          .read(sharedPrefsProvider);
+      expect(prefs.getStringList('inbox.pinned'), ['studio/b']);
+    });
+
+    testWithSemantics('Pin and Mark read are screen-reader actions', (t) async {
+      await show(t, [studio()]);
+      final node = t.getSemantics(find.bySemanticsLabel(RegExp(r'^opencode in ~/api-server')));
+      final actions = node.getSemanticsData().customSemanticsActionIds;
+      expect(actions, isNotNull);
+      expect(actions!.length, 2);
+    });
+
+    testWidgets('golden: a row pressed, with its ripple, light', (t) async {
+      await show(t, [studio(), devbox()]);
+      final g = await t.startGesture(t.getCenter(find.textContaining('Running tests')));
+      await t.pump(const Duration(milliseconds: 40));
+      await t.pump(const Duration(milliseconds: 160));
+      await expectGolden(find.byType(MaterialApp), 'inbox_pressed_light');
+      await g.up();
+      await t.pumpAndSettle();
+    });
+
+    testWidgets('golden: keyboard focus on Approve shows a ring, light', (t) async {
+      FocusManager.instance.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
+      addTearDown(() => FocusManager.instance.highlightStrategy = FocusHighlightStrategy.automatic);
+      await show(t, [studio()]);
+      Focus.maybeOf(t.element(find.text('Approve')))!.requestFocus();
+      await t.pumpAndSettle();
+      await expectGolden(find.byType(MaterialApp), 'inbox_focus_approve_light');
     });
 
     testWidgets('golden: tablet shows the rail and a list beside a pane', (t) async {
