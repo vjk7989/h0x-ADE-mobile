@@ -1,3 +1,6 @@
+import 'dart:ui' as ui;
+
+import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart' hide Icon;
@@ -166,9 +169,12 @@ class _Pill extends StatelessWidget {
   );
 }
 
-/// A tab change fades the new body in (200 ms, standard); with reduced motion
-/// the fade is at most 100 ms. The old body is not kept: the shell's child is
-/// one Navigator, which cannot sit in the tree twice.
+/// A real fade-through between tabs (200 ms): the outgoing body fades out over
+/// the first 35 % (emphasized accel), then the incoming one fades in and
+/// scales 0.96 -> 1 over the rest (emphasized decel); they are never both
+/// visible. The shell's child is one Navigator that shows the new tab at once,
+/// so the outgoing body is a snapshot of its last frame. With reduced motion
+/// it is a cross-fade of at most 100 ms.
 class _FadeThrough extends StatefulWidget {
   const _FadeThrough({required this.index, required this.child});
 
@@ -181,31 +187,98 @@ class _FadeThrough extends StatefulWidget {
 
 class _FadeThroughState extends State<_FadeThrough>
     with SingleTickerProviderStateMixin {
+  final _boundary = GlobalKey();
+  ui.Image? _old;
   late final AnimationController _c = AnimationController(
     vsync: this,
     value: 1,
-  );
+  )..addStatusListener((s) {
+      if (s == AnimationStatus.completed) _drop();
+    });
+
+  void _drop() {
+    if (_old == null) return;
+    setState(() {
+      _old!.dispose();
+      _old = null;
+    });
+  }
 
   @override
   void didUpdateWidget(_FadeThrough old) {
     super.didUpdateWidget(old);
-    if (old.index != widget.index) {
-      _c.duration = HxMotion.d(context, HxMotion.fadeThrough, fade: true);
-      _c.forward(from: 0.15);
+    if (old.index == widget.index) return;
+    // The boundary still holds the last frame of the old tab: this runs
+    // before the new body is painted.
+    final box = _boundary.currentContext?.findRenderObject();
+    if (box is RenderRepaintBoundary && box.hasSize && !box.debugNeedsPaint) {
+      _old?.dispose();
+      _old = box.toImageSync(
+        pixelRatio: MediaQuery.devicePixelRatioOf(context),
+      );
     }
+    _c.duration = HxMotion.d(context, HxMotion.fadeThrough, fade: true);
+    _c.forward(from: 0);
   }
 
   @override
   void dispose() {
+    _old?.dispose();
     _c.dispose();
     super.dispose();
   }
 
   @override
-  Widget build(BuildContext context) => FadeTransition(
-    opacity: CurvedAnimation(parent: _c, curve: HxMotion.standard),
-    child: widget.child,
-  );
+  Widget build(BuildContext context) {
+    final reduced = HxMotion.reduced(context);
+    final ratio = MediaQuery.devicePixelRatioOf(context);
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final t = _c.value;
+        final double out;
+        final double inn;
+        final double scale;
+        if (reduced) {
+          out = 1 - t;
+          inn = t;
+          scale = 1;
+        } else {
+          out = 1 - HxMotion.emphasizedAccel.transform((t / 0.35).clamp(0.0, 1.0));
+          inn = HxMotion.emphasizedDecel.transform(
+            ((t - 0.35) / 0.65).clamp(0.0, 1.0),
+          );
+          scale = 0.96 + 0.04 * inn;
+        }
+        final fading = _old != null && t < 1;
+        return Stack(
+          fit: StackFit.passthrough,
+          children: [
+            Opacity(
+              opacity: fading ? inn : 1,
+              child: Transform.scale(
+                scale: fading ? scale : 1,
+                child: RepaintBoundary(key: _boundary, child: widget.child),
+              ),
+            ),
+            if (fading)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: out,
+                    child: RawImage(
+                      image: _old,
+                      scale: ratio,
+                      fit: BoxFit.fill,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
 }
 
 class _NavItem extends StatelessWidget {

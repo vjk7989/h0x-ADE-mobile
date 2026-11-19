@@ -10,12 +10,16 @@ import '../widgets/hx_icon_compat.dart';
 import '../config.dart';
 import '../conn/machine_connection.dart';
 import '../state/inbox.dart';
+import '../theme/motion.dart';
 import '../theme/themes.dart';
 import '../theme/type.dart';
 import '../widgets/app_shell.dart';
 import '../widgets/hx.dart';
 import '../widgets/hx_bits.dart';
 import '../widgets/hx_icons.dart';
+import '../widgets/hx_refresh.dart';
+import '../widgets/hx_transitions.dart';
+import '../widgets/status_motion.dart';
 import 'agent_screen.dart';
 
 /// Every agent on every machine, grouped by who needs whom (design: Inbox).
@@ -35,6 +39,11 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
   String _query = '';
   InboxItem? _selected;
 
+  /// Rows already shown, by id and group: a row that is not here is new in its
+  /// group (first load: staggered; later: it moved or arrived).
+  final _seen = <String>{};
+  var _firstLoadDone = false;
+
   @override
   void dispose() {
     _search.dispose();
@@ -48,7 +57,15 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     } else if (MediaQuery.sizeOf(context).width >= kRailBreakpoint) {
       setState(() => _selected = item);
     } else {
-      context.push('/agent/${item.machine.id}/${item.session.terminal}');
+      final id = '${item.machine.id}/${item.session.terminal}';
+      context.push(
+        '/agent/$id',
+        extra: HxRowRegistry.originOf(
+          id,
+          radius: 18,
+          color: context.hx.colors.card,
+        ),
+      );
     }
   }
 
@@ -60,7 +77,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         : await conn.deny(item.session.terminal);
     if (!mounted) return;
     if (r is! Done) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_replyText(r))));
+      showHxSnack(context, SnackBar(content: Text(_replyText(r))));
     }
     unawaited(ref.read(inboxProvider).refresh());
   }
@@ -193,15 +210,33 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
           count: items.length,
           dot: groupColor(c, g),
         ));
+        var n = 0;
         for (final i in items) {
-          children.add(AgentRow(
-            item: i,
-            onOpen: () => _open(i),
-            onAnswer: (approve) => _answer(i, approve),
-            onPin: () => controller.togglePin(i.key),
-            onMarkRead: () => controller.markRead(i),
+          final id = '${i.key}/${g.name}';
+          final fresh = _seen.add(id);
+          // First load: rows stagger 24 ms apart (at most 6). Later, a row
+          // that arrives in a group grows in; the old group drops it.
+          final delay = _firstLoadDone
+              ? Duration.zero
+              : HxMotion.stagger * (n < HxMotion.staggerItems ? n : HxMotion.staggerItems);
+          n++;
+          children.add(Appear(
+            key: ValueKey(id),
+            animate: fresh,
+            delay: delay,
+            child: AgentRow(
+              item: i,
+              fresh: fresh && _firstLoadDone,
+              onOpen: () => _open(i),
+              onAnswer: (approve) => _answer(i, approve),
+              onPin: () => controller.togglePin(i.key),
+              onMarkRead: () => controller.markRead(i),
+            ),
           ));
         }
+      }
+      if (!_firstLoadDone) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _firstLoadDone = true);
       }
       if (!any) {
         children.add(Padding(
@@ -219,7 +254,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
       children: [
         header,
         Expanded(
-          child: RefreshIndicator(
+          child: HxRefresh(
             onRefresh: controller.refresh,
             child: ListView(padding: const EdgeInsets.only(bottom: 16), children: children),
           ),
@@ -410,8 +445,11 @@ class AgentRow extends StatelessWidget {
     this.onMarkRead,
     this.compact = false,
     this.selected = false,
+    this.fresh = false,
   });
 
+  /// New in its group after the first load: a done check draws itself.
+  final bool fresh;
   final bool compact;
   final bool selected;
   final InboxItem item;
@@ -448,6 +486,7 @@ class AgentRow extends StatelessWidget {
         onPin: onPin,
         onMarkRead: markRead ?? () {},
         child: Container(
+        key: HxRowRegistry.keyFor('${item.machine.id}/${item.session.terminal}'),
         decoration: BoxDecoration(
           color: selected ? c.selected : c.card,
           borderRadius: BorderRadius.circular(18),
@@ -503,6 +542,7 @@ class AgentRow extends StatelessWidget {
                                   Text(item.machine.name,
                                       style: HxType.mono.copyWith(color: c.muted)),
                                   ModeTag(item.machine.mode),
+                                  _StatusMark(item: item, tone: tone, fresh: fresh),
                                   HxTag(word, color: tone),
                                 ],
                               ),
@@ -727,5 +767,26 @@ class _SwipeActionsState extends State<_SwipeActions> {
         ),
       ),
     );
+  }
+}
+
+/// The moving part of a row's status: a pulse when it needs you, the braille
+/// spinner while it works, a check when it is done.
+class _StatusMark extends StatelessWidget {
+  const _StatusMark({required this.item, required this.tone, required this.fresh});
+
+  final InboxItem item;
+  final Color tone;
+  final bool fresh;
+
+  @override
+  Widget build(BuildContext context) {
+    if (item.offline) return const SizedBox.shrink();
+    return switch (item.session.group) {
+      AgentGroup.needsYou => NeedsYouPulse(color: tone, size: 8),
+      AgentGroup.working => WorkingGlyph(color: tone),
+      AgentGroup.done => DoneCheck(done: true, color: tone, drawIn: fresh),
+      AgentGroup.idle => const SizedBox.shrink(),
+    };
   }
 }

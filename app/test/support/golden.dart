@@ -173,12 +173,15 @@ Future<ui.Image> strip(
   WidgetTester tester, {
   required List<int> times,
   double scale = 0.5,
+  Future<void> Function(int frame)? before,
 }) async {
   final frames = <ui.Image>[];
   var at = 0;
+  var i = 0;
   for (final ms in times) {
     if (ms > at) await tester.pump(Duration(milliseconds: ms - at));
     at = ms;
+    await before?.call(i++);
     RenderObject ro = tester.renderObject(find.byType(MaterialApp));
     while (!ro.isRepaintBoundary) {
       ro = ro.parent!;

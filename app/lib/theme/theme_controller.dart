@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -112,3 +113,36 @@ class ThemeController extends Notifier<ThemeSettings> {
 
 final themeControllerProvider =
     NotifierProvider<ThemeController, ThemeSettings>(ThemeController.new);
+
+const _splashChannel = MethodChannel('hyperox/splash');
+
+/// Tells Android which splash the next cold start should show (13+): the
+/// app's resolved mode, which can differ from the system's. Sent at start-up
+/// and whenever the resolved brightness changes. Below 13 the splash follows
+/// the system mode (a known limit).
+class SplashThemeSync extends StatefulWidget {
+  const SplashThemeSync({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<SplashThemeSync> createState() => _SplashThemeSyncState();
+}
+
+class _SplashThemeSyncState extends State<SplashThemeSync> {
+  bool? _light;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final light = Theme.of(context).brightness == Brightness.light;
+    if (light == _light) return;
+    _light = light;
+    _splashChannel
+        .invokeMethod<void>('setTheme', {'light': light})
+        .catchError((_) {}); // no host (tests, desktop)
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
+}
