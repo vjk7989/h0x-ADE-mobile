@@ -297,6 +297,7 @@ class _KeyCapState extends State<_KeyCap> {
               ),
               child: Stack(
                 alignment: Alignment.center,
+                fit: StackFit.expand,
                 children: [
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 2),
