@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:hyperox/widgets/status_motion.dart';
 
 Future<void> _loadFont(String family, String path) async {
   final loader = FontLoader(family)
@@ -17,6 +18,8 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   await _loadFont('JetBrainsMono', 'assets/fonts/JetBrainsMono-Variable.ttf');
   await _loadFont('PatrickHand', 'assets/fonts/PatrickHand-Regular.ttf');
   await _loadMaterialIcons();
+  // The looping pulse and spinner would keep pumpAndSettle from ever settling.
+  StatusMotion.loops = false;
   await testMain();
 }
 

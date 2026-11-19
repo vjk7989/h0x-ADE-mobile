@@ -21,6 +21,7 @@ import '../widgets/app_shell.dart';
 import '../widgets/hx.dart';
 import '../widgets/hx_bits.dart';
 import '../widgets/machine_sheets.dart';
+import '../widgets/status_motion.dart';
 
 String osLabel(String os) => switch (os) {
   'linux' => 'Linux',
@@ -398,7 +399,7 @@ class _ModeCard extends StatelessWidget {
   }
 }
 
-class _Section extends StatelessWidget {
+class _Section extends StatefulWidget {
   const _Section({
     required this.label,
     required this.entries,
@@ -412,8 +413,23 @@ class _Section extends StatelessWidget {
   final void Function(MachineEntry)? onSelect;
 
   @override
+  State<_Section> createState() => _SectionState();
+}
+
+class _SectionState extends State<_Section> {
+  /// Machines shown so far: one that is not here was just added and grows in.
+  final _seen = <String>{};
+  var _first = true;
+
+  @override
   Widget build(BuildContext context) {
     final c = context.hx.colors;
+    final label = widget.label;
+    final entries = widget.entries;
+    final selectedId = widget.selectedId;
+    final onSelect = widget.onSelect;
+    final first = _first;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _first = false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -430,12 +446,16 @@ class _Section extends StatelessWidget {
             children: [
               for (var i = 0; i < entries.length; i++) ...[
                 if (i > 0) Divider(height: 1, color: c.hairline),
-                _MachineRow(
-                  entry: entries[i],
-                  selected: entries[i].info.id == selectedId,
-                  onSelect: onSelect == null
-                      ? null
-                      : () => onSelect!(entries[i]),
+                Appear(
+                  key: ValueKey(entries[i].info.id),
+                  animate: _seen.add(entries[i].info.id) && !first,
+                  child: _MachineRow(
+                    entry: entries[i],
+                    selected: entries[i].info.id == selectedId,
+                    onSelect: onSelect == null
+                        ? null
+                        : () => onSelect(entries[i]),
+                  ),
                 ),
               ],
             ],
@@ -687,11 +707,7 @@ class _MachineRow extends ConsumerWidget {
     final state = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: wordColor, shape: BoxShape.circle),
-        ),
+        StatusDot(color: wordColor),
         const SizedBox(width: 4),
         Text(word, style: HxType.mono.copyWith(color: wordColor)),
       ],

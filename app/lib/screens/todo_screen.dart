@@ -1,4 +1,5 @@
 import 'package:flutter/semantics.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart' hide Icon;
@@ -8,12 +9,14 @@ import '../conn/machine_connection.dart';
 import '../data/todo_model.dart';
 import '../state/connections.dart';
 import '../state/todo.dart';
+import '../theme/motion.dart';
 import '../theme/themes.dart';
 import '../theme/type.dart';
 import '../widgets/app_shell.dart';
 import '../widgets/hx.dart';
 import '../widgets/hx_bits.dart';
 import '../widgets/hx_icons.dart';
+import '../widgets/status_motion.dart';
 
 /// The desktop's to-do lists from a chosen computer (design: To-do). The
 /// files are the desktop's own Markdown; every change re-reads and writes.
@@ -81,6 +84,10 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
   String? _loadedFor;
   final _expanded = <int>{};
   var _completedOpen = false;
+
+  /// The list just became all done (not: it was already): confetti plays.
+  bool? _wasAllDone;
+  var _celebrating = false;
   var _adding = false;
   final _addController = TextEditingController();
   final _addFocus = FocusNode();
@@ -425,6 +432,10 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
     final open = list?.openCount ?? 0;
     final total = list?.tasks.length ?? 0;
     final done = total - open;
+    final allDone = list?.allDone ?? false;
+    if (_wasAllDone == false && allDone) _celebrating = true;
+    if (!allDone) _celebrating = false;
+    if (list != null) _wasAllDone = allDone;
     final subtitle = s.loading && doc == null
         ? '${conn.machine.name} · loading…'
         : '${conn.machine.name} · $open open';
@@ -630,13 +641,27 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
             ]),
           ),
         if (list.allDone)
-          Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(children: [
-              Icon(Icons.check_circle_outline, size: 36, color: colors.accent),
-              const SizedBox(height: 8),
-              Text('All done for today', style: HxType.bodyLg),
-            ]),
+          Stack(
+            alignment: Alignment.topCenter,
+            clipBehavior: Clip.none,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(children: [
+                  Icon(Icons.check_circle_outline, size: 36, color: colors.accent),
+                  const SizedBox(height: 8),
+                  Text('All done for today', style: HxType.bodyLg),
+                ]),
+              ),
+              if (_celebrating)
+                const Positioned(
+                  left: 0,
+                  right: 0,
+                  top: -160,
+                  height: 420,
+                  child: IgnorePointer(child: HxConfetti()),
+                ),
+            ],
           ),
       ],
     );
@@ -672,7 +697,10 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
               ),
               if (_completedOpen)
                 for (final i in doneIdx)
-                  Padding(
+                  Appear(
+                    key: ValueKey('done-row-$i'),
+                    animate: true,
+                    child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
                     child: _TaskCard(
                       key: ValueKey('done-$i'),
@@ -690,6 +718,7 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
                       onMoveStep: (a, b) => _run(c, () => c.moveStepTo(i, a, b)),
                       onMove: null,
                     ),
+                  ),
                   ),
               const SizedBox(height: 16),
             ],
@@ -1161,20 +1190,36 @@ class _Tick extends StatelessWidget {
       onTap: onTap,
       child: InkWell(
         customBorder: const CircleBorder(),
-        onTap: onTap,
+        onTap: onTap == null
+            ? null
+            : () {
+                // Ticking a task gives a light tap.
+                if (!done) HapticFeedback.lightImpact();
+                onTap!();
+              },
         child: SizedBox(
           width: 48,
           height: 48,
           child: Center(
-            child: Container(
+            // The circle fills in 150 ms, then the check draws (200 ms).
+            child: AnimatedContainer(
+              duration: HxMotion.d(context, const Duration(milliseconds: 150), fade: true),
+              curve: HxMotion.standard,
               width: r * 2,
               height: r * 2,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: done ? c.accent : null,
+                color: done ? c.accent : const Color(0x00000000),
                 border: Border.all(color: done ? c.accent : c.outline, width: 1.6),
               ),
-              child: done ? Icon(Icons.check, size: r * 1.3, color: c.accentForeground) : null,
+              child: Center(
+                child: DoneCheck(
+                  done: done,
+                  color: c.accentForeground,
+                  size: r * 1.3,
+                  delay: const Duration(milliseconds: 150),
+                ),
+              ),
             ),
           ),
         ),
