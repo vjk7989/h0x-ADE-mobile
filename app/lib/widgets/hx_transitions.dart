@@ -136,7 +136,9 @@ class HxContainerPage<T> extends CustomTransitionPage<T> {
         // runs it the other way: the fill leaves over the last 30 %, so the
         // row's own content is back and there is never an empty card.
         final v = animation.value;
-        final t = HxMotion.standard.transform(v);
+        // A gentler curve than the page's: the rect is seen between the row and
+        // the screen (at 70 ms it is about a fifth of the way).
+        final t = const Cubic(0.4, 0, 0.2, 1).transform(v);
         final rect = Rect.lerp(now ?? origin.rect, Offset.zero & size, t)!;
         final fill = (v / (reversing ? 0.3 : 0.35)).clamp(0.0, 1.0);
         final page = ((v - 0.35) / 0.65).clamp(0.0, 1.0);
