@@ -5,6 +5,7 @@ import 'router.dart';
 import 'screens/unlock_screen.dart';
 import 'theme/theme_controller.dart';
 import 'theme/themes.dart';
+import 'widgets/intro.dart';
 
 class HyperOxApp extends ConsumerWidget {
   const HyperOxApp({super.key});
@@ -17,7 +18,8 @@ class HyperOxApp extends ConsumerWidget {
       theme: themeData(themeById(choice.light)),
       darkTheme: themeData(themeById(choice.dark)),
       themeMode: choice.themeMode,
-      builder: (context, child) => AppLockScope(child: child!),
+      builder: (context, child) =>
+          IntroGate(child: AppLockScope(child: child!)),
       routerConfig: ref.watch(routerProvider),
     );
   }

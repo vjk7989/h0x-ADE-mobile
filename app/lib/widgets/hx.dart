@@ -370,9 +370,8 @@ class HxMark extends StatelessWidget {
     '111100000000011110000',
   ];
 
-  /// The dot grid, for tools/gen_icons.py's test: the launcher icon must be
-  /// this grid.
-  @visibleForTesting
+  /// The dot grid. tools/gen_icons.py builds the launcher icon from it, a test
+  /// keeps the two equal, and the intro draws it.
   static List<String> get rows => _rows;
 
   @override
