@@ -219,7 +219,10 @@ class _ThemeRow extends StatelessWidget {
                       Text(spec.label, style: HxType.heading),
                       Text(
                         spec.isLight ? '[light]' : '[dark]',
-                        style: HxType.mono.copyWith(color: hx.muted),
+                        // On a selected row the secondary text is foreground.
+                        style: HxType.mono.copyWith(
+                          color: selected ? hx.foreground : hx.muted,
+                        ),
                       ),
                     ],
                   ),

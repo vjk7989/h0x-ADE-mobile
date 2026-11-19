@@ -114,6 +114,7 @@ void main() {
       await tester.scrollUntilVisible(find.text('Moss'), 300);
       final label = find.bySemanticsLabel('Darkmatter, dark theme, selected');
       expect(label, findsOneWidget);
+      await tester.ensureVisible(find.bySemanticsLabel('Moss, dark theme'));
       await tester.tap(find.bySemanticsLabel('Moss, dark theme'));
       await tester.pumpAndSettle();
       expect(find.bySemanticsLabel('Moss, dark theme, selected'), findsOneWidget);
