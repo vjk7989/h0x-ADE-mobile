@@ -638,16 +638,20 @@ class _KeyCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              if (k.addAgain) ...[
-                const HxBanner(
-                  kind: HxBannerKind.info,
-                  title: 'New key',
-                  message:
-                      'This phone made a new key. Add it again on every '
-                      'machine.',
-                ),
-                const SizedBox(height: 8),
-              ],
+              HxBannerSlot(
+                child: !k.addAgain
+                    ? null
+                    : const Padding(
+                        padding: EdgeInsets.only(bottom: 8),
+                        child: HxBanner(
+                          kind: HxBannerKind.info,
+                          title: 'New key',
+                          message:
+                              'This phone made a new key. Add it again on every '
+                              'machine.',
+                        ),
+                      ),
+              ),
               Semantics(
                 label:
                     'This phone\'s public key, ed25519, '

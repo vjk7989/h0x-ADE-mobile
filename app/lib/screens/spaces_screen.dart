@@ -154,23 +154,35 @@ class _SpacesScreenState extends ConsumerState<SpacesScreen> {
     );
 
     final notes = <Widget>[
-      if (data.offline)
-        _Note(
-          icon: Icons.cloud_off_outlined,
-          title: '${conn.machine.name} is offline',
-          text: 'This is the last known layout. Panes open again when it is back.',
-        ),
-      if (view != null && !view.supported)
-        _Note(
-          icon: Icons.warning_amber_outlined,
-          title: 'Update HyperOx on this computer',
-          text: "This computer's h0x-core is too old to share its spaces. "
-              'Agents still show in the Inbox.',
-          action: 'Open Inbox',
-          onAction: () => (widget.onNavigate ?? (d) => context.go(d.path))(NavDest.inbox),
-        ),
-      if (data.error != null)
-        _Note(icon: Icons.error_outline, title: "Spaces didn't load", text: data.error!),
+      HxBannerSlot(
+        key: const ValueKey('note-offline'),
+        child: !data.offline
+            ? null
+            : _Note(
+                icon: Icons.cloud_off_outlined,
+                title: '${conn.machine.name} is offline',
+                text: 'This is the last known layout. Panes open again when it is back.',
+              ),
+      ),
+      HxBannerSlot(
+        key: const ValueKey('note-old-core'),
+        child: !(view != null && !view.supported)
+            ? null
+            : _Note(
+                icon: Icons.warning_amber_outlined,
+                title: 'Update HyperOx on this computer',
+                text: "This computer's h0x-core is too old to share its spaces. "
+                    'Agents still show in the Inbox.',
+                action: 'Open Inbox',
+                onAction: () => (widget.onNavigate ?? (d) => context.go(d.path))(NavDest.inbox),
+              ),
+      ),
+      HxBannerSlot(
+        key: const ValueKey('note-error'),
+        child: data.error == null
+            ? null
+            : _Note(icon: Icons.error_outline, title: "Spaces didn't load", text: data.error!),
+      ),
     ];
 
     Widget content;

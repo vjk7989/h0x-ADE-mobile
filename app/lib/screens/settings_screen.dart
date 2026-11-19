@@ -180,15 +180,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               subtitle: key.fingerprint,
               mono: true,
             ),
-            if (_key!.addAgain)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 8),
-                child: HxBanner(
-                  title: 'New key',
-                  message: 'Add it to every machine again.',
-                  kind: HxBannerKind.info,
-                ),
-              ),
+            HxBannerSlot(
+              child: !_key!.addAgain
+                  ? null
+                  : const Padding(
+                      padding: EdgeInsets.only(bottom: 8),
+                      child: HxBanner(
+                        title: 'New key',
+                        message: 'Add it to every machine again.',
+                        kind: HxBannerKind.info,
+                      ),
+                    ),
+            ),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(12),

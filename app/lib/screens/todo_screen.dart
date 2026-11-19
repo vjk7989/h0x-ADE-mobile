@@ -445,20 +445,32 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
     );
 
     final banners = <Widget>[
-      if (s.offline)
-        _Banner(
-          title: '${conn.machine.name} is offline',
-          text: 'Read-only copy from the last sync. Ticks and edits wait until it is back.',
-          kind: HxBannerKind.offline,
-        ),
-      if (doc != null && doc.readOnly)
-        _Banner(
-          title: "This list can't be read",
-          text: '${doc.problem} It is left untouched on ${conn.machine.name} and shown read-only.',
-          kind: HxBannerKind.error,
-        ),
-      if (s.error != null)
-        _Banner(title: "Couldn't read the lists", text: s.error!, kind: HxBannerKind.error),
+      HxBannerSlot(
+        key: const ValueKey('banner-offline'),
+        child: !s.offline
+            ? null
+            : _Banner(
+                title: '${conn.machine.name} is offline',
+                text: 'Read-only copy from the last sync. Ticks and edits wait until it is back.',
+                kind: HxBannerKind.offline,
+              ),
+      ),
+      HxBannerSlot(
+        key: const ValueKey('banner-readonly'),
+        child: !(doc != null && doc.readOnly)
+            ? null
+            : _Banner(
+                title: "This list can't be read",
+                text: '${doc.problem} It is left untouched on ${conn.machine.name} and shown read-only.',
+                kind: HxBannerKind.error,
+              ),
+      ),
+      HxBannerSlot(
+        key: const ValueKey('banner-error'),
+        child: s.error == null
+            ? null
+            : _Banner(title: "Couldn't read the lists", text: s.error!, kind: HxBannerKind.error),
+      ),
     ];
 
     Widget body;

@@ -174,27 +174,39 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
           _query = '';
         }),
       ),
-      if (state.allOffline)
-        _Banner(
-          title: 'All machines are offline',
-          message: 'Showing the last state from the last time they answered. Pull to retry, or check Machines.',
-          action: 'Open Machines',
-          kind: HxBannerKind.info,
-          onAction: () => (widget.onNavigate ?? (d) => context.go(d.path))(NavDest.machines),
-        ),
+      HxBannerSlot(
+        key: const ValueKey('banner-all-offline'),
+        child: !state.allOffline
+            ? null
+            : _Banner(
+                title: 'All machines are offline',
+                message: 'Showing the last state from the last time they answered. Pull to retry, or check Machines.',
+                action: 'Open Machines',
+                kind: HxBannerKind.info,
+                onAction: () => (widget.onNavigate ?? (d) => context.go(d.path))(NavDest.machines),
+              ),
+      ),
       for (final m in state.machines)
-        if (m.state is Failed && !state.allOffline && !m.loaded)
-          _Banner(
-            title: "${m.info.name} didn't answer",
-            message: '${(m.state as Failed).reason}. Its agents are hidden until it answers.',
-            action: 'Retry ${m.info.name}',
-            kind: HxBannerKind.error,
-            onAction: () => controller.retry(controller.connectionFor(m.info.id)!),
-          ),
+        HxBannerSlot(
+          key: ValueKey('banner-fail-${m.info.id}'),
+          child: !(m.state is Failed && !state.allOffline && !m.loaded)
+              ? null
+              : _Banner(
+                  title: "${m.info.name} didn't answer",
+                  message: '${(m.state as Failed).reason}. Its agents are hidden until it answers.',
+                  action: 'Retry ${m.info.name}',
+                  kind: HxBannerKind.error,
+                  onAction: () => controller.retry(controller.connectionFor(m.info.id)!),
+                ),
+        ),
       if (kAccountMode)
         for (final m in state.machines)
-          if (m.state is NeedsApproval)
-            _ApprovalBanner(name: m.info.name, code: (m.state as NeedsApproval).code),
+          HxBannerSlot(
+            key: ValueKey('banner-approve-${m.info.id}'),
+            child: m.state is NeedsApproval
+                ? _ApprovalBanner(name: m.info.name, code: (m.state as NeedsApproval).code)
+                : null,
+          ),
     ];
 
     if (state.loading) {

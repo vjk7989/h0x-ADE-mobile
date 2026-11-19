@@ -41,15 +41,18 @@ Widget _bannerPage({required bool show}) => Scaffold(
     child: Column(
       children: [
         const Padding(padding: EdgeInsets.all(16), child: Text('Machines')),
-        if (show)
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: HxBanner(
-              title: 'devbox is offline',
-              message: 'Check that it is on and on your network.',
-              kind: HxBannerKind.offline,
-            ),
-          ),
+        HxBannerSlot(
+          child: show
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: HxBanner(
+                    title: 'devbox is offline',
+                    message: 'Check that it is on and on your network.',
+                    kind: HxBannerKind.offline,
+                  ),
+                )
+              : null,
+        ),
         const Padding(padding: EdgeInsets.all(16), child: Text('devbox')),
       ],
     ),
