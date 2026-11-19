@@ -1,7 +1,7 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hyperox/auth/app_lock.dart';
+import 'package:hyperox/data/ssh_gateway.dart';
 import 'package:hyperox/conn/machine_connection.dart';
 import 'package:hyperox/state/connections.dart';
 import 'package:hyperox/state/inbox.dart';
@@ -10,6 +10,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'support/fake_connection.dart';
 import 'support/fake_core.dart';
+import 'support/fake_gateway.dart';
 import 'support/golden.dart';
 import 'support/golden_expect.dart';
 import 'support/machines_fixture.dart';
@@ -24,6 +25,7 @@ class _Gate implements BiometricGate {
 
 List<Override> _overrides(FakeConnection conn) => [
   connectionsProvider.overrideWithValue(<MachineConnection>[conn]),
+  sshGatewayProvider.overrideWithValue(FakeGateway(fallback: FakeBehavior())),
   inboxPollProvider.overrideWithValue(null),
   secretStoreProvider.overrideWithValue(MemSecrets()),
   biometricGateProvider.overrideWithValue(_Gate()),

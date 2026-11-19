@@ -769,7 +769,7 @@ class _PaneCard extends StatelessWidget {
       decoration: BoxDecoration(
         // A needs-you pane has a 1.5 dp `working` edge; the others a hairline
         // on `well` (dark) or #f6f6f4 (light).
-        color: dark ? c.well : const Color(0xFFF6F6F4),
+        color: dark ? c.well : c.card,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: needs ? c.working : (finished ? c.outline : c.hairline),

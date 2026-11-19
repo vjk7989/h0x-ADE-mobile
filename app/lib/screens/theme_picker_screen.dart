@@ -30,13 +30,12 @@ class ThemePickerScreen extends ConsumerWidget {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 20, 4, 8),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(title, style: HxType.labelXs.copyWith(color: hx.muted)),
-                ),
+              Semantics(
+                header: true,
+                child: Text(title, style: HxType.labelXs.copyWith(color: hx.muted)),
               ),
               if (hint != null)
                 Text(hint, style: HxType.mono.copyWith(color: hx.muted, fontSize: 11.5)),

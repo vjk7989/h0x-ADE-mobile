@@ -82,6 +82,9 @@ void main() {
       tester,
     ) async {
       final c = await _container();
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
       final router = GoRouter(
         routes: [
           GoRoute(path: '/', builder: (_, _) => const SignInScreen()),

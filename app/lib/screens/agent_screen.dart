@@ -796,7 +796,9 @@ class _PromptCard extends StatelessWidget {
                         permission
                             ? 'permission · ${session.agent}'
                             : 'question · reply in the box below',
-                        style: HxType.mono.copyWith(color: c.muted),
+                        style: HxType.mono.copyWith(
+                          color: c.foreground.withValues(alpha: 0.8),
+                        ),
                       ),
                     ],
                   ),
