@@ -1,4 +1,4 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:material_ui/material_ui.dart' hide Key;
 
 import '../conn/machine_connection.dart';
 import '../state/key_input.dart';

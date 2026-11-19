@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide Key;
 import 'package:flutter/scheduler.dart';
 import 'package:xterm/xterm.dart';
 
@@ -63,7 +63,7 @@ class AgentController extends ChangeNotifier {
   // Output waits here and is written once per frame.
   final StringBuffer _pending = StringBuffer();
   bool _frameScheduled = false;
-  late final StringConversionSink _decoder = utf8.decoder
+  late final ByteConversionSink _decoder = utf8.decoder
       .startChunkedConversion(StringConversionSink.fromStringSink(_decoded));
   final StringBuffer _decoded = StringBuffer();
 

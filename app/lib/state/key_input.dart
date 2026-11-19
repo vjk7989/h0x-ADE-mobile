@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide Key;
 
 import '../conn/machine_connection.dart';
 
