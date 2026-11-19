@@ -83,7 +83,9 @@ class _HxPressableState extends State<HxPressable> {
           if (states.contains(WidgetState.pressed)) {
             return layer.withValues(alpha: HxMotion.pressedLayer);
           }
-          if (states.contains(WidgetState.focused)) {
+          // A tap leaves focus on the control; the layer is for keyboard focus.
+          if (states.contains(WidgetState.focused) &&
+              FocusManager.instance.highlightMode == FocusHighlightMode.traditional) {
             return layer.withValues(alpha: HxMotion.focusedLayer);
           }
           if (states.contains(WidgetState.hovered)) {

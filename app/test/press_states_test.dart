@@ -67,8 +67,8 @@ Future<List<TestGesture>> _holdPressed(WidgetTester t) async {
       await t.startGesture(t.getCenter(find.byKey(ValueKey('$label-pressed'))), pointer: pointer++),
     );
   }
-  // 60 ms in: the press scale is on its way, the state layer is up.
-  await t.pump(const Duration(milliseconds: 60));
+  // 120 ms in: the 90 ms press scale has landed and the state layer is up.
+  await t.pump(const Duration(milliseconds: 120));
   return gestures;
 }
 
