@@ -1,7 +1,10 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
-import 'package:flutter/foundation.dart' show visibleForTesting;
+import 'dart:developer' as developer;
+
+import 'package:flutter/foundation.dart'
+    show SynchronousFuture, debugPrint, kDebugMode, kProfileMode, visibleForTesting;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_ui/material_ui.dart' hide Icon;
 
@@ -45,8 +48,19 @@ class HxIntro extends StatefulWidget {
 
   static void markShown() => _shown = true;
 
+  /// Starts at the beginning of main(): the timestamps in the log line.
+  static final clock = Stopwatch();
+
+  /// Completes when the user can see a frame (tests complete it at once).
   @visibleForTesting
-  static void resetForTest() => _shown = false;
+  static Future<void> Function() firstFrame = () =>
+      WidgetsBinding.instance.waitUntilFirstFrameRasterized;
+
+  @visibleForTesting
+  static void resetForTest() {
+    _shown = false;
+    firstFrame = () => SynchronousFuture<void>(null);
+  }
 
   @override
   State<HxIntro> createState() => _HxIntroState();
@@ -64,7 +78,10 @@ class _HxIntroState extends State<HxIntro> with SingleTickerProviderStateMixin {
     super.initState();
     _c = AnimationController(vsync: this, duration: HxMotion.intro)
       ..addStatusListener((s) {
-        if (s == AnimationStatus.completed) widget.onDone();
+        if (s == AnimationStatus.completed) {
+          _log('done');
+          widget.onDone();
+        }
       });
   }
 
@@ -77,7 +94,34 @@ class _HxIntroState extends State<HxIntro> with SingleTickerProviderStateMixin {
     _started = true;
     _reduced = HxMotion.reduced(context);
     _c.duration = _reduced ? HxMotion.introReduced : HxMotion.intro;
-    _c.forward(from: 0);
+    // The first frame (dots at 25 %) is drawn first; t = 0 is the first frame
+    // the user can see, not the first build.
+    HxIntro.firstFrame().then((_) {
+      if (!mounted) return;
+      _log('firstFrameRasterized');
+      _log('start');
+      _c.forward(from: 0);
+    });
+  }
+
+  final _marks = <String, int>{};
+
+  /// One line in debug and profile builds: `HxIntro: firstFrameRasterized +Xms,
+  /// start +Yms, done +Zms` (from main()).
+  void _log(String what) {
+    if (!kDebugMode && !kProfileMode) return;
+    _marks[what] = HxIntro.clock.elapsedMilliseconds;
+    if (what != 'done') return;
+    final line =
+        'HxIntro: firstFrameRasterized +${_marks['firstFrameRasterized']}ms, '
+        'start +${_marks['start']}ms, done +${_marks['done']}ms';
+    if (kDebugMode) {
+      debugPrint(line);
+    } else {
+      developer.Timeline.instantSync(line);
+      // ignore: avoid_print
+      print(line);
+    }
   }
 
   @override
@@ -94,7 +138,8 @@ class _HxIntroState extends State<HxIntro> with SingleTickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    final dark = MediaQuery.platformBrightnessOf(context) == Brightness.dark;
+    // The app's resolved mode (the splash follows it too), not the system's.
+    final dark = Theme.of(context).brightness == Brightness.dark;
     final wide = size.width >= kRailBreakpoint;
     final top = MediaQuery.paddingOf(context).top;
     final ink = dark ? _foregroundDark : _foregroundLight;
@@ -139,6 +184,7 @@ class _HxIntroState extends State<HxIntro> with SingleTickerProviderStateMixin {
                           size: size,
                           wide: wide,
                           top: top,
+                          dark: dark,
                         ),
                       ),
                       Positioned(
@@ -176,8 +222,10 @@ class _IntroPainter extends CustomPainter {
     required this.size,
     required this.wide,
     required this.top,
+    required this.dark,
   });
 
+  final bool dark;
   final double t;
   final bool reduced;
   final Size size;
@@ -215,23 +263,25 @@ class _IntroPainter extends CustomPainter {
       canvas.scale(scale);
       canvas.translate(-box.center.dx, -box.center.dy);
     }
+    // The wave colour: lighter on dark, darker on light (stays visible).
+    final hot = dark
+        ? Color.lerp(_accent, const Color(0xFFFFFFFF), 0.55)!
+        : Color.lerp(_accent, const Color(0xFF000000), 0.25)!;
     final rows = HxMark.rows;
     // Icons use heavier dots than the in-app mark: 0.36 of the step.
     final radius = step * 0.36;
     for (var r = 0; r < rows.length; r++) {
       for (var c = 0; c < 21; c++) {
         if (rows[r][c] != '1') continue;
-        // A dot on diagonal d = c + r starts at d x 6.8 ms and rises over 120.
-        final start = (c + r) * 6.8;
-        final a = reduced
-            ? 1.0
-            : 0.25 +
-                0.75 *
-                    HxMotion.standard.transform(((t - start) / 120).clamp(0.0, 1.0));
+        // Lit like the native splash at t = 0. A highlight wave runs over
+        // the dots: the dot on diagonal d = c + r starts at d x 6.8 ms, and
+        // over 160 ms its intensity goes 0 -> 1 -> 0 (ease in and out).
+        final u = reduced ? 0.0 : ((t - (c + r) * 6.8) / 160).clamp(0.0, 1.0);
+        final h = 0.5 - 0.5 * math.cos(2 * math.pi * u);
         canvas.drawCircle(
           Offset(box.left + (c + 0.5) * step, box.top + (r + 0.5) * step),
-          radius,
-          Paint()..color = _accent.withValues(alpha: a),
+          radius * (1 + 0.35 * h),
+          Paint()..color = Color.lerp(_accent, hot, h)!,
         );
       }
     }
@@ -240,7 +290,7 @@ class _IntroPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_IntroPainter old) =>
-      old.t != t || old.size != size || old.wide != wide || old.reduced != reduced;
+      old.t != t || old.dark != dark || old.size != size || old.wide != wide || old.reduced != reduced;
 }
 
 /// Shows [HxIntro] over [child] once per process on a cold start, then drops

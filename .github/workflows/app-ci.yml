@@ -43,3 +43,12 @@ jobs:
           name: hyperox-debug-apk
           path: app/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
+      - name: Build profile APK (arm64)
+        if: ${{ !cancelled() }}
+        run: flutter build apk --profile --target-platform android-arm64
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: ${{ !cancelled() }}
+        with:
+          name: hyperox-profile-apk
+          path: app/build/app/outputs/flutter-apk/app-profile.apk
+          if-no-files-found: error

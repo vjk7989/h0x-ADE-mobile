@@ -297,6 +297,7 @@ class _KeyCapState extends State<_KeyCap> {
               ),
               child: Stack(
                 alignment: Alignment.center,
+                fit: StackFit.expand,
                 children: [
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -315,7 +316,7 @@ class _KeyCapState extends State<_KeyCap> {
                   ),
                   if (widget.locked)
                     Positioned(
-                      bottom: 4,
+                      bottom: 6,
                       child: Container(width: 12, height: 2, color: fg),
                     ),
                 ],

@@ -5,6 +5,7 @@ import 'package:hyperox/widgets/intro.dart';
 import 'package:material_ui/material_ui.dart' hide Icon;
 
 import 'support/golden.dart';
+import 'support/golden_expect.dart';
 
 /// The first screen the intro covers (the app is built under it from frame 0).
 class _App extends StatelessWidget {
@@ -51,6 +52,12 @@ void main() {
   testWidgets('golden: the intro strip, dark tablet (the mark flies to the rail)', (t) async {
     await _pumpFresh(t, Brightness.dark, frame: Frame.tablet);
     await _shot(t, await strip(t, times: _times, scale: 0.35), 'intro_strip_tablet_dark');
+    await t.pumpAndSettle();
+  });
+
+  testWidgets('golden: the first intro frame is the splash frame, light', (t) async {
+    await _pumpFresh(t, Brightness.light);
+    await expectGolden(find.byType(MaterialApp), 'intro_t0_matches_splash_light');
     await t.pumpAndSettle();
   });
 

@@ -13,6 +13,7 @@ import 'screens/theme_picker_screen.dart';
 import 'screens/spaces_screen.dart';
 import 'screens/todo_screen.dart';
 import 'session_state.dart';
+import 'widgets/hx_transitions.dart';
 import 'widgets/nav_shell.dart';
 
 /// Where a user goes, given who they are. Returns null to stay.
@@ -61,33 +62,51 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Full-screen routes, outside the navigation.
       GoRoute(
         path: '/machines/add',
-        builder: (_, _) => const AddMachineScreen(),
+        pageBuilder: (_, state) =>
+            HxSharedAxisPage(key: state.pageKey, child: const AddMachineScreen()),
       ),
       GoRoute(
         path: '/settings/theme',
-        builder: (_, _) => const ThemePickerScreen(),
+        pageBuilder: (_, state) =>
+            HxSharedAxisPage(key: state.pageKey, child: const ThemePickerScreen()),
       ),
       GoRoute(
         path: '/agent/:machine/:terminal',
-        builder: (_, state) => AgentScreen(
-          machineId: state.pathParameters['machine']!,
-          terminal: state.pathParameters['terminal']!,
-        ),
+        pageBuilder: (_, state) {
+          final screen = AgentScreen(
+            machineId: state.pathParameters['machine']!,
+            terminal: state.pathParameters['terminal']!,
+          );
+          final from = state.extra;
+          // From an inbox row the page grows out of the row.
+          return from is HxOrigin
+              ? HxContainerPage(key: state.pageKey, origin: from, child: screen)
+              : HxSharedAxisPage(key: state.pageKey, child: screen);
+        },
       ),
       ShellRoute(
         builder: (context, state, child) =>
             NavShell(location: state.uri.path, child: child),
         routes: [
-          GoRoute(path: '/inbox', builder: (_, _) => const InboxScreen()),
+          GoRoute(
+            path: '/inbox',
+            pageBuilder: (_, _) => const NoTransitionPage(child: InboxScreen()),
+          ),
           GoRoute(
             path: '/machines',
-            builder: (_, _) => const MachinesScreen(),
+            pageBuilder: (_, _) => const NoTransitionPage(child: MachinesScreen()),
           ),
-          GoRoute(path: '/spaces', builder: (_, _) => const SpacesScreen()),
-          GoRoute(path: '/todo', builder: (_, _) => const TodoScreen()),
+          GoRoute(
+            path: '/spaces',
+            pageBuilder: (_, _) => const NoTransitionPage(child: SpacesScreen()),
+          ),
+          GoRoute(
+            path: '/todo',
+            pageBuilder: (_, _) => const NoTransitionPage(child: TodoScreen()),
+          ),
           GoRoute(
             path: '/settings',
-            builder: (_, _) => const SettingsScreen(),
+            pageBuilder: (_, _) => const NoTransitionPage(child: SettingsScreen()),
           ),
         ],
       ),

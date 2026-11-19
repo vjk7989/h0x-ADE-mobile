@@ -151,10 +151,13 @@ class SshMachineConnection implements MachineConnection {
   Future<void> _loop() async {
     while (!_closing) {
       _emit(const Connecting());
+      // The wait before the next try, told to the listeners with the failure.
+      Duration wait;
       try {
         await _session();
         if (_closing) return;
-        _emit(const Failed('connection lost'));
+        wait = _backoff.next();
+        _emit(Failed('connection lost', retryIn: wait));
       } on SshFatal catch (e) {
         _fatal = true;
         _emit(Failed(e.message));
@@ -163,13 +166,14 @@ class SshMachineConnection implements MachineConnection {
         return;
       } catch (e) {
         if (_closing) return;
-        _emit(Failed('cannot connect: $e'));
+        wait = _backoff.next();
+        _emit(Failed('cannot connect: $e', retryIn: wait));
         _settle(_last);
       }
       _rpc = null;
       await _transport?.close();
       if (_closing) return;
-      await _delay(_backoff.next());
+      await _delay(wait);
     }
   }
 

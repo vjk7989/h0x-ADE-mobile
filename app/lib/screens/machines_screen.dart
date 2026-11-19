@@ -13,13 +13,16 @@ import '../data/machine_status.dart';
 import '../data/ssh_gateway.dart';
 import '../data/ssh_machines_repo.dart';
 import '../session_state.dart';
+import '../theme/motion.dart';
 import '../theme/themes.dart';
 import '../theme/type.dart';
 import '../state/inbox.dart';
 import '../widgets/app_shell.dart';
 import '../widgets/hx.dart';
 import '../widgets/hx_bits.dart';
+import '../widgets/hx_refresh.dart';
 import '../widgets/machine_sheets.dart';
+import '../widgets/status_motion.dart';
 
 String osLabel(String os) => switch (os) {
   'linux' => 'Linux',
@@ -141,7 +144,9 @@ class _MachinesScreenState extends ConsumerState<MachinesScreen> {
               Expanded(
                 child: entries.isEmpty
                     ? const _EmptyState()
-                    : ListView(
+                    : HxRefresh(
+                        onRefresh: ref.read(machineStatusProvider.notifier).refresh,
+                        child: ListView(
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 112),
                         children: [
                           if (account.isNotEmpty)
@@ -159,6 +164,7 @@ class _MachinesScreenState extends ConsumerState<MachinesScreen> {
                               onSelect: wide ? select : null,
                             ),
                         ],
+                        ),
                       ),
               ),
             ],
@@ -180,7 +186,15 @@ class _MachinesScreenState extends ConsumerState<MachinesScreen> {
         Expanded(
           child: SafeArea(
             bottom: false,
-            child: _MachineDetail(entry: picked),
+            // The detail pane cross-fades when another machine is picked.
+            child: AnimatedSwitcher(
+              duration: HxMotion.d(context, HxMotion.stateChange, fade: true),
+              switchInCurve: HxMotion.standard,
+              child: KeyedSubtree(
+                key: ValueKey(picked.info.id),
+                child: _MachineDetail(entry: picked),
+              ),
+            ),
           ),
         ),
       ],
@@ -389,7 +403,7 @@ class _ModeCard extends StatelessWidget {
   }
 }
 
-class _Section extends StatelessWidget {
+class _Section extends StatefulWidget {
   const _Section({
     required this.label,
     required this.entries,
@@ -403,8 +417,23 @@ class _Section extends StatelessWidget {
   final void Function(MachineEntry)? onSelect;
 
   @override
+  State<_Section> createState() => _SectionState();
+}
+
+class _SectionState extends State<_Section> {
+  /// Machines shown so far: one that is not here was just added and grows in.
+  final _seen = <String>{};
+  var _first = true;
+
+  @override
   Widget build(BuildContext context) {
     final c = context.hx.colors;
+    final label = widget.label;
+    final entries = widget.entries;
+    final selectedId = widget.selectedId;
+    final onSelect = widget.onSelect;
+    final first = _first;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _first = false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -421,12 +450,16 @@ class _Section extends StatelessWidget {
             children: [
               for (var i = 0; i < entries.length; i++) ...[
                 if (i > 0) Divider(height: 1, color: c.hairline),
-                _MachineRow(
-                  entry: entries[i],
-                  selected: entries[i].info.id == selectedId,
-                  onSelect: onSelect == null
-                      ? null
-                      : () => onSelect!(entries[i]),
+                Appear(
+                  key: ValueKey(entries[i].info.id),
+                  animate: _seen.add(entries[i].info.id) && !first,
+                  child: _MachineRow(
+                    entry: entries[i],
+                    selected: entries[i].info.id == selectedId,
+                    onSelect: onSelect == null
+                        ? null
+                        : () => onSelect(entries[i]),
+                  ),
                 ),
               ],
             ],
@@ -678,11 +711,7 @@ class _MachineRow extends ConsumerWidget {
     final state = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: wordColor, shape: BoxShape.circle),
-        ),
+        StatusDot(color: wordColor),
         const SizedBox(width: 4),
         Text(word, style: HxType.mono.copyWith(color: wordColor)),
       ],
