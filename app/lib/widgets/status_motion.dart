@@ -60,20 +60,24 @@ int _pulsing = 0;
 /// Pulses that are on screen and want to run but found no free slot.
 final _waiting = <_NeedsYouPulseState>{};
 
-/// A slot was freed: hand it to a waiting pulse that is still on screen.
+var _offerScheduled = false;
+
+/// Slots were freed: hand them to waiting pulses that are still on screen
+/// (next frame, never during a build or a dispose).
 void _offerSlot() {
-  for (final w in [..._waiting]) {
-    if (_pulsing >= kMaxPulses) return;
-    if (!w.mounted) {
-      _waiting.remove(w);
-      continue;
+  if (_offerScheduled) return;
+  _offerScheduled = true;
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    _offerScheduled = false;
+    for (final w in [..._waiting]) {
+      if (_pulsing >= kMaxPulses) return;
+      if (!w.mounted) {
+        _waiting.remove(w);
+      } else {
+        w.retry();
+      }
     }
-    // Not during a build or dispose: the next frame.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (w.mounted && _pulsing < kMaxPulses) w.retry();
-    });
-    return;
-  }
+  });
 }
 
 class StatusMotion {

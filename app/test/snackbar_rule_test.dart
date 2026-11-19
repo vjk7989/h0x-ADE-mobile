@@ -11,7 +11,7 @@ void main() {
       if (!path.endsWith('.dart') || path.endsWith('lib/widgets/hx.dart')) continue;
       final lines = f.readAsLinesSync();
       for (var i = 0; i < lines.length; i++) {
-        if (lines[i].contains('SnackBar(') || lines[i].contains('.showSnackBar')) {
+        if (RegExp(r'(?<![A-Za-z])SnackBar\(').hasMatch(lines[i]) || lines[i].contains('.showSnackBar')) {
           bad.add('$path:${i + 1}');
         }
       }

@@ -339,7 +339,11 @@ class _HxBannerState extends State<HxBanner> {
           ),
         ),
       );
-      overlay.insert(entry);
+      // The tree is locked while it is being torn down: the copy goes in on
+      // the next frame.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (overlay.mounted) overlay.insert(entry);
+      });
     }
     super.dispose();
   }
