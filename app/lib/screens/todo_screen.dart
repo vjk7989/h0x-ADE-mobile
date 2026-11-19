@@ -89,6 +89,7 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
   // (to find the hole the neighbours opened, where the accent line goes).
   var _dragging = false;
   var _dragY = 0.0;
+  double? _line;
   final _stackKey = GlobalKey();
   final _itemKeys = <int, GlobalKey>{};
 
@@ -745,7 +746,16 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
           ),
       ],
     );
-    final line = _lineTop();
+    // The hole moves while the neighbours animate: measure after every frame
+    // of a drag until it stops moving.
+    if (_dragging) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_dragging) return;
+        final y = _lineTop();
+        if (y != _line) setState(() => _line = y);
+      });
+    }
+    final line = _dragging ? _line : null;
     return Listener(
       onPointerMove: (e) {
         if (_dragging) setState(() => _dragY = e.position.dy);

@@ -452,6 +452,8 @@ void main() {
     // Let the neighbours settle: the hole, and the line in it, are at the target.
     await t.pump(const Duration(milliseconds: 100));
     await t.pump(const Duration(milliseconds: 400));
+    await t.pump();
+    await t.pump();
     await expectGolden(find.byType(MaterialApp), 'todo_reorder_light');
     await g.up();
     await t.pumpAndSettle();
