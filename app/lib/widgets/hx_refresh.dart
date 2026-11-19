@@ -35,12 +35,15 @@ class _HxRefreshState extends State<HxRefresh> {
     if (n.depth != 0 || n.metrics.axis != Axis.vertical) return false;
     if (_refreshing) return false;
     if (n is ScrollUpdateNotification || n is OverscrollNotification) {
+      final dragging = n is ScrollUpdateNotification
+          ? n.dragDetails != null
+          : (n as OverscrollNotification).dragDetails != null;
       final pull = (-n.metrics.pixels).clamp(0.0, 160.0);
       if (pull != _pull) setState(() => _pull = pull);
-      if (pull >= kRefreshThreshold && !_armed && n.dragDetails != null) {
+      if (pull >= kRefreshThreshold && !_armed && dragging) {
         _armed = true;
         HapticFeedback.lightImpact();
-      } else if (pull < kRefreshThreshold && n.dragDetails != null) {
+      } else if (pull < kRefreshThreshold && dragging) {
         // Only a finger lowers it again; the spring back after a release must
         // not disarm the refresh.
         _armed = false;
