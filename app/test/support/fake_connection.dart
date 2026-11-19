@@ -71,15 +71,22 @@ class FakeConnection implements MachineConnection {
   @override
   Future<List<Session>> sessions() async => live.values.toList();
 
+  /// What spaces() gives (tests replace it); [spacesError] makes it throw.
+  SpacesView spacesView = const SpacesView(
+    spaces: [
+      Space(name: 'app', folder: '/srv/a', tabs: [
+        SpaceTab(name: 'main', panes: ['build'])
+      ])
+    ],
+    agents: [AgentSlot(slot: 1, name: 'claude', command: 'claude')],
+  );
+  Object? spacesError;
+
   @override
-  Future<SpacesView> spaces() async => const SpacesView(
-        spaces: [
-          Space(name: 'app', folder: '/srv/a', tabs: [
-            SpaceTab(name: 'main', panes: ['build'])
-          ])
-        ],
-        agents: [AgentSlot(slot: 1, name: 'claude', command: 'claude')],
-      );
+  Future<SpacesView> spaces() async {
+    if (spacesError != null) throw spacesError!;
+    return spacesView;
+  }
 
   Reply _unknown(String t) => ReplyFailed('no such terminal: $t');
 

@@ -1,4 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hyperox/conn/machine_connection.dart';
@@ -240,7 +239,7 @@ void main() {
     testWidgets('a question row has no Approve', (t) async {
       await show(t, [devbox()]);
       expect(find.text('Approve'), findsNothing);
-      expect(find.text('question'), findsOneWidget);
+      expect(find.text('[question]'), findsOneWidget);
     });
 
     testWidgets('tapping a row opens it and marks it read', (t) async {

@@ -97,8 +97,7 @@ class FakeCoreState {
       case 'machine.exec':
         return {
           'code': 0,
-          'stdout': base64.encode(utf8.encode('/home/me/.config/h0x-ade
-')),
+          'stdout': base64.encode(utf8.encode('/home/me/.config/h0x-ade\n')),
           'stderr': '',
           'ms': 1,
           'timed_out': false,
