@@ -166,6 +166,30 @@ class FakeConnection implements MachineConnection {
   @override
   Stream<Notice> notices() => _notices.stream;
 
+  /// The machine's files, by absolute path.
+  final files = <String, String>{};
+  var writes = 0;
+  Object? writeError;
+
+  /// Called before each read (tests change a file "on the computer" here).
+  void Function(String path)? onRead;
+
+  @override
+  Future<String> appHome() async => '/home/me/.config/h0x-ade';
+
+  @override
+  Future<String?> readFile(String path) async {
+    onRead?.call(path);
+    return files[path];
+  }
+
+  @override
+  Future<void> writeFile(String path, String text) async {
+    if (writeError != null) throw writeError!;
+    writes++;
+    files[path] = text;
+  }
+
   @override
   Future<void> close() async {
     closed = true;

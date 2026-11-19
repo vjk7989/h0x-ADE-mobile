@@ -62,6 +62,21 @@ void connectionContract(String name, Future<MachineConnection> Function() make) 
       await expectLater(c.view('nope'), throwsA(anything));
     });
 
+    test('files: missing reads null, a write reads back, app home is absolute', () async {
+      final home = await c.appHome();
+      expect(home, isNotEmpty);
+      final path = '$home/todo/contract.md';
+      expect(await c.readFile(path), isNull);
+      await c.writeFile(path, '# T
+- [ ] a
+');
+      expect(await c.readFile(path), '# T
+- [ ] a
+');
+      await c.writeFile(path, '');
+      expect(await c.readFile(path), '');
+    });
+
     test('state emits ready or has been ready', () async {
       // Implementations are ready when make() returns.
       expect(c.machine.online, isTrue);

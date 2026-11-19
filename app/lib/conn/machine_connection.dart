@@ -349,5 +349,18 @@ abstract class MachineConnection {
   /// observer never resizes a terminal (core: observe = watch only).
   Future<TermView> view(String terminal, {int history = 5000});
   Stream<Notice> notices();
+
+  /// The absolute folder of the desktop app's files on that machine
+  /// (`$H0X_ADE_HOME`, else `~/.config/h0x-ade`). SSH only.
+  Future<String> appHome();
+
+  /// A text file on that machine, or null when it does not exist. Throws for
+  /// anything else (not text, too large, no access). SSH only.
+  Future<String?> readFile(String path);
+
+  /// Writes a text file atomically (core writes beside it and renames),
+  /// creating folders. SSH only.
+  Future<void> writeFile(String path, String text);
+
   Future<void> close();
 }
