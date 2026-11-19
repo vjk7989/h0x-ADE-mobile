@@ -167,3 +167,62 @@ class HxContainerPage<T> extends CustomTransitionPage<T> {
     );
   }
 }
+
+/// Swaps [child] for the next one with a fade-through (200 ms): the old one
+/// is out over the first 35 %, then the new one comes in (scale 0.98 -> 1).
+/// They are never both visible. The swap happens when [id] changes.
+class HxFadeThrough extends StatefulWidget {
+  const HxFadeThrough({super.key, required this.id, required this.child});
+
+  final Object id;
+  final Widget child;
+
+  @override
+  State<HxFadeThrough> createState() => _HxFadeThroughState();
+}
+
+class _HxFadeThroughState extends State<HxFadeThrough>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, value: 1);
+  Widget? _old;
+
+  @override
+  void didUpdateWidget(HxFadeThrough old) {
+    super.didUpdateWidget(old);
+    if (old.id == widget.id) return;
+    _old = old.child;
+    _c.duration = HxMotion.d(context, HxMotion.stateChange, fade: true);
+    _c.forward(from: 0).whenComplete(() {
+      if (mounted) setState(() => _old = null);
+    });
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _c,
+    builder: (context, _) {
+      final t = _c.value;
+      final old = _old;
+      if (old != null && t < 0.35) {
+        return Opacity(
+          opacity: 1 - HxMotion.emphasizedAccel.transform(t / 0.35),
+          child: KeyedSubtree(key: const ValueKey('old'), child: old),
+        );
+      }
+      final u = old == null ? 1.0 : HxMotion.emphasizedDecel.transform((t - 0.35) / 0.65);
+      return Opacity(
+        opacity: u,
+        child: Transform.scale(
+          scale: 0.98 + 0.02 * u,
+          child: KeyedSubtree(key: ValueKey(widget.id), child: widget.child),
+        ),
+      );
+    },
+  );
+}

@@ -21,6 +21,7 @@ import '../widgets/app_shell.dart';
 import '../widgets/hx.dart';
 import '../widgets/hx_bits.dart';
 import '../widgets/hx_refresh.dart';
+import '../widgets/hx_transitions.dart';
 import '../widgets/machine_sheets.dart';
 import '../widgets/status_motion.dart';
 
@@ -186,28 +187,10 @@ class _MachinesScreenState extends ConsumerState<MachinesScreen> {
         Expanded(
           child: SafeArea(
             bottom: false,
-            // The detail pane fades through when another machine is picked:
-            // the old one is out over the first 35 %, then the new one comes
-            // in (scale 0.98 -> 1). Never both visible.
-            child: AnimatedSwitcher(
-              duration: HxMotion.d(context, HxMotion.stateChange, fade: true),
-              transitionBuilder: (child, anim) {
-                final incoming = child.key == ValueKey(picked!.info.id);
-                final o = incoming
-                    ? ((anim.value - 0.35) / 0.65).clamp(0.0, 1.0)
-                    : ((anim.value - 0.65) / 0.35).clamp(0.0, 1.0);
-                return Opacity(
-                  opacity: HxMotion.standard.transform(o),
-                  child: Transform.scale(
-                    scale: incoming ? 0.98 + 0.02 * o : 1,
-                    child: child,
-                  ),
-                );
-              },
-              child: KeyedSubtree(
-                key: ValueKey(picked.info.id),
-                child: _MachineDetail(entry: picked),
-              ),
+            // The detail pane fades through when another machine is picked.
+            child: HxFadeThrough(
+              id: picked.info.id,
+              child: _MachineDetail(entry: picked),
             ),
           ),
         ),
