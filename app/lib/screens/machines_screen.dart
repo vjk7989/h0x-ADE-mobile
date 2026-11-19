@@ -531,7 +531,9 @@ class _MachineDetail extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SectionLabel('Agents', count: sessions.length),
-                HxCard(
+                SizedBox(
+                  width: double.infinity,
+                  child: HxCard(
                   padding: EdgeInsets.zero,
                   child: sessions.isEmpty
                       ? Padding(
@@ -580,6 +582,7 @@ class _MachineDetail extends ConsumerWidget {
                               ),
                           ],
                         ),
+                ),
                 ),
               ],
             );
@@ -742,7 +745,10 @@ class _MachineRow extends ConsumerWidget {
             onTap: tap,
             onLongPress: () => _actions(context, ref),
             child: Container(
-              color: selected ? c.selected : null,
+              decoration: BoxDecoration(
+                color: selected ? c.selected : null,
+                borderRadius: BorderRadius.circular(12),
+              ),
               constraints: const BoxConstraints(minHeight: 72),
               padding: const EdgeInsets.all(12),
               child: body,

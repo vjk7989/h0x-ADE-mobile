@@ -133,10 +133,18 @@ class HxIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = color ?? IconTheme.of(context).color ?? const Color(0xFF000000);
     return ExcludeSemantics(
+      // Like Material's Icon: a tight parent (a 44 dp circle) may be bigger
+      // than the icon, which stays [size] and centred.
       child: SizedBox(
         width: size,
         height: size,
-        child: CustomPaint(painter: _IconPainter(name, c, duo)),
+        child: Center(
+          child: SizedBox(
+            width: size,
+            height: size,
+            child: CustomPaint(painter: _IconPainter(name, c, duo)),
+          ),
+        ),
       ),
     );
   }
