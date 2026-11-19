@@ -28,6 +28,18 @@ class KnownHosts {
     }
   }
 
+  /// Every trusted host: `host:port` to its fingerprint, in name order.
+  Future<Map<String, String>> entries() async {
+    final all = await _all();
+    return {for (final k in all.keys.toList()..sort()) k: all[k]!};
+  }
+
+  /// Forgets one entry by its `host:port` key (as listed by [entries]).
+  Future<void> forgetEntry(String key) async {
+    final all = await _all();
+    if (all.remove(key) != null) await _store.write(storeKey, jsonEncode(all));
+  }
+
   Future<String?> lookup(String host, int port) async => (await _all())[entryKey(host, port)];
 
   Future<HostKeyCheck> check(String host, int port, String fingerprint) async {
