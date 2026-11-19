@@ -13,6 +13,7 @@ import '../data/machine_status.dart';
 import '../data/ssh_gateway.dart';
 import '../data/ssh_machines_repo.dart';
 import '../session_state.dart';
+import '../theme/motion.dart';
 import '../theme/themes.dart';
 import '../theme/type.dart';
 import '../state/inbox.dart';
@@ -180,7 +181,15 @@ class _MachinesScreenState extends ConsumerState<MachinesScreen> {
         Expanded(
           child: SafeArea(
             bottom: false,
-            child: _MachineDetail(entry: picked),
+            // The detail pane cross-fades when another machine is picked.
+            child: AnimatedSwitcher(
+              duration: HxMotion.d(context, HxMotion.stateChange, fade: true),
+              switchInCurve: HxMotion.standard,
+              child: KeyedSubtree(
+                key: ValueKey(picked.info.id),
+                child: _MachineDetail(entry: picked),
+              ),
+            ),
           ),
         ),
       ],

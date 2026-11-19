@@ -16,6 +16,7 @@ import '../widgets/app_shell.dart';
 import '../widgets/hx.dart';
 import '../widgets/hx_bits.dart';
 import '../widgets/hx_icons.dart';
+import '../widgets/hx_transitions.dart';
 import 'agent_screen.dart';
 
 /// Every agent on every machine, grouped by who needs whom (design: Inbox).
@@ -48,7 +49,15 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
     } else if (MediaQuery.sizeOf(context).width >= kRailBreakpoint) {
       setState(() => _selected = item);
     } else {
-      context.push('/agent/${item.machine.id}/${item.session.terminal}');
+      final id = '${item.machine.id}/${item.session.terminal}';
+      context.push(
+        '/agent/$id',
+        extra: HxRowRegistry.originOf(
+          id,
+          radius: 18,
+          color: context.hx.colors.card,
+        ),
+      );
     }
   }
 
@@ -448,6 +457,7 @@ class AgentRow extends StatelessWidget {
         onPin: onPin,
         onMarkRead: markRead ?? () {},
         child: Container(
+        key: HxRowRegistry.keyFor('${item.machine.id}/${item.session.terminal}'),
         decoration: BoxDecoration(
           color: selected ? c.selected : c.card,
           borderRadius: BorderRadius.circular(18),
