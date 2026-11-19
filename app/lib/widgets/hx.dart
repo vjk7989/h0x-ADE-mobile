@@ -136,7 +136,7 @@ class HxBanner extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: tone.withAlpha(kind == HxBannerKind.error ? 18 : 8),
+          color: tone.withAlpha(kind == HxBannerKind.error ? 18 : 3),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: tone),
         ),

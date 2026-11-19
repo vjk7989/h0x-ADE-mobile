@@ -868,16 +868,16 @@ class _AddBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.hx.colors;
-    return Opacity(
-      opacity: enabled ? 1 : 0.38,
-      child: Container(
+    return Container(
       constraints: const BoxConstraints(minHeight: 52),
       decoration: BoxDecoration(
         color: c.card,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: adding ? c.accent : c.outline),
       ),
-      child: Row(
+      child: Opacity(
+        opacity: enabled ? 1 : 0.38,
+        child: Row(
         children: [
           const SizedBox(width: 16),
           Icon(Icons.add, size: 22, color: enabled ? c.accent : c.dim),
@@ -905,7 +905,8 @@ class _AddBar extends StatelessWidget {
           ),
         ],
       ),
-    ));
+    ),
+    );
   }
 }
 
