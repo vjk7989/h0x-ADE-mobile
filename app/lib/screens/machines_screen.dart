@@ -13,7 +13,6 @@ import '../data/machine_status.dart';
 import '../data/ssh_gateway.dart';
 import '../data/ssh_machines_repo.dart';
 import '../session_state.dart';
-import '../theme/motion.dart';
 import '../theme/themes.dart';
 import '../theme/type.dart';
 import '../state/inbox.dart';

@@ -116,6 +116,7 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
   void _go(NavDest d) => (widget.onNavigate ?? (x) => context.go(x.path))(d);
 
   void _say(String text, {String? actionLabel, VoidCallback? onAction, Duration? duration}) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     showHxSnack(
       context,
       text,

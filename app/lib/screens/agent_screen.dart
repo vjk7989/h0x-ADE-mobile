@@ -167,6 +167,7 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
 
   void _snack(String text) {
     final lift = (_bottomKey.currentContext?.size?.height ?? 100) + 8;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
     showHxSnack(context, text, bottom: lift);
   }
 

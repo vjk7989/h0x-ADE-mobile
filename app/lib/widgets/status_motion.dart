@@ -70,7 +70,7 @@ void _offerSlot() {
     }
     // Not during a build or dispose: the next frame.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (w.mounted && _pulsing < kMaxPulses) w.setState(w._sync);
+      if (w.mounted && _pulsing < kMaxPulses) w.retry();
     });
     return;
   }
@@ -123,6 +123,9 @@ class _NeedsYouPulseState extends State<NeedsYouPulse>
       if (_owns) _release();
     }
   }
+
+  /// A slot is free: try to take it.
+  void retry() => setState(_sync);
 
   void _release() {
     _pulsing--;

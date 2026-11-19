@@ -211,11 +211,16 @@ class _FadeThroughState extends State<_FadeThrough>
     // The boundary still holds the last frame of the old tab: this runs
     // before the new body is painted.
     final box = _boundary.currentContext?.findRenderObject();
-    if (box is RenderRepaintBoundary && box.hasSize && box.layer != null) {
+    if (box is RenderRepaintBoundary && box.hasSize) {
       _old?.dispose();
-      _old = box.toImageSync(
-        pixelRatio: MediaQuery.devicePixelRatioOf(context),
-      );
+      try {
+        _old = box.toImageSync(
+          pixelRatio: MediaQuery.devicePixelRatioOf(context),
+        );
+      } catch (_) {
+        // Not painted yet: no outgoing picture, the new tab simply fades in.
+        _old = null;
+      }
     }
     _c.duration = HxMotion.d(context, HxMotion.fadeThrough, fade: true);
     _c.forward(from: 0);

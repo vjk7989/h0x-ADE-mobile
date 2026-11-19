@@ -484,6 +484,14 @@ class _BannerGhostState extends State<_BannerGhost> with SingleTickerProviderSta
   );
 }
 
+double _contrast(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  final hi = la > lb ? la : lb;
+  final lo = la > lb ? lb : la;
+  return (hi + 0.05) / (lo + 0.05);
+}
+
 /// The accent, moved toward white or black until it reads at 4.5:1 on
 /// [fill] (the inverse snackbar: `foreground` is the fill, so on a light
 /// theme it is dark and the accent is lightened, as the board's #8ab4ff).
@@ -507,16 +515,18 @@ Color accentOnInverse(Color accent, Color fill) {
 /// until it reads at 4.5:1.
 ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showHxSnack(
   BuildContext context,
-  String message, {
+  Object message, {
   String? actionLabel,
   VoidCallback? onAction,
   Duration duration = const Duration(seconds: 4),
   double bottom = 12,
 }) {
   final c = context.hx.colors;
-  final m = ScaffoldMessenger.of(context)..hideCurrentSnackBar();
+  final m = ScaffoldMessenger.of(context);
   return m.showSnackBar(
-    SnackBar(
+    // A ready-made SnackBar is only taken for the animation (tests); the app
+    // passes text.
+    message is SnackBar ? message : SnackBar(
       behavior: SnackBarBehavior.floating,
       backgroundColor: c.foreground,
       margin: EdgeInsets.fromLTRB(16, 0, 16, bottom),
@@ -526,7 +536,7 @@ ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showHxSnack(
         constraints: const BoxConstraints(minHeight: 56),
         child: Align(
           alignment: Alignment.centerLeft,
-          child: Text(message, style: HxType.body.copyWith(color: c.screen, fontSize: 13.5)),
+          child: Text('$message', style: HxType.body.copyWith(color: c.screen, fontSize: 13.5)),
         ),
       ),
       action: actionLabel == null
