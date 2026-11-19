@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:dartssh2/dartssh2.dart' show OpenSSHEd25519KeyPair;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +12,7 @@ import 'package:hyperox/state/inbox.dart';
 import 'package:hyperox/state/ssh.dart';
 import 'package:hyperox/theme/theme_controller.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:pinenacl/ed25519.dart' as nacl;
 
 import 'support/a11y.dart';
 import 'support/fake_connection.dart';
@@ -199,10 +203,15 @@ void main() {
 
   testWidgets('golden: key and known hosts, scrolled', (t) async {
     secrets.map['hyperox.ssh.known_hosts.v1'] = '{"devbox:22":"SHA256:4mQe0rTT0000000000000000000000000000000000"}';
+    // A fixed key: a generated one is random, and so would be the golden.
+    final sk = nacl.SigningKey.fromSeed(Uint8List.fromList(List.filled(32, 7)));
+    secrets.map['hyperox.ssh.key.v1'] = OpenSSHEd25519KeyPair(
+      Uint8List.fromList(sk.verifyKey.asTypedList),
+      Uint8List.fromList(sk.asTypedList),
+      'hyperox-phone',
+    ).toPem();
     await show(t, b: Brightness.dark);
-    await scrollTo(t, find.text('Create key'));
-    await t.tap(find.text('Create key'));
-    await t.pumpAndSettle();
+    await scrollTo(t, find.text('Regenerate key…'));
     await scrollTo(t, find.text('devbox:22'));
     await expectGolden(find.byType(MaterialApp), 'settings_phone_dark_key');
     await expectAccessible(t);
@@ -214,7 +223,7 @@ void main() {
     await expectAccessible(t);
   });
 
-  testWidgets('golden: tablet keeps a centred column', (t) async {
+  testWidgets('golden: tablet shows the categories and the selected one', (t) async {
     await show(t, f: Frame.tablet);
     await expectGolden(find.byType(MaterialApp), 'settings_tablet_light');
     await expectAccessible(t);
