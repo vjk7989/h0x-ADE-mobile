@@ -317,38 +317,25 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
   Widget _terminalArea(BuildContext context, AgentController a) {
     final hx = context.hx;
     final theme = terminalThemeFor(hx.terminal);
-    final cols = a.size?.cols ?? 80;
     return LayoutBuilder(
       builder: (context, box) {
-        // The terminal is laid out at the computer's width (so its output
-        // lines up as it was drawn); if the phone is narrower it scrolls
-        // sideways. The computer's terminal is never resized from here.
-        final cell = _fontSize * 0.6;
-        final need = cols * cell + 21;
-        Widget view = SizedBox(
-          width: need,
-          height: box.maxHeight,
-          child: TerminalView(
-            a.terminal,
-            controller: a.selection,
-            theme: theme,
-            textStyle: TerminalStyle(
-              fontSize: _fontSize,
-              height: 16 / 12,
-              fontFamily: 'JetBrainsMono',
-            ),
-            textScaler: TextScaler.noScaling,
-            padding: const EdgeInsets.all(10),
-            autofocus: false,
-            readOnly: !_ready,
+        // The view fills the screen and the local terminal takes the
+        // columns that fit; lines wider than the phone wrap. The computer's
+        // terminal is never resized from here (no resize is forwarded).
+        final view = TerminalView(
+          a.terminal,
+          controller: a.selection,
+          theme: theme,
+          textStyle: TerminalStyle(
+            fontSize: _fontSize,
+            height: 16 / 12,
+            fontFamily: 'JetBrainsMono',
           ),
+          textScaler: TextScaler.noScaling,
+          padding: const EdgeInsets.all(10),
+          autofocus: false,
+          readOnly: !_ready,
         );
-        view = need > box.maxWidth
-            ? SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: view,
-              )
-            : Align(alignment: Alignment.topLeft, child: view);
         return Stack(
           children: [
             Positioned.fill(
