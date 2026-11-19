@@ -67,8 +67,9 @@ Future<List<TestGesture>> _holdPressed(WidgetTester t) async {
       await t.startGesture(t.getCenter(find.byKey(ValueKey('$label-pressed'))), pointer: pointer++),
     );
   }
-  // 120 ms in: the 90 ms press scale has landed and the state layer is up.
-  await t.pump(const Duration(milliseconds: 120));
+  // 300 ms in: the 90 ms press scale has landed and the 200 ms state layer
+  // fade is complete, so the pressed look is at full strength.
+  await t.pump(const Duration(milliseconds: 300));
   return gestures;
 }
 
@@ -188,7 +189,7 @@ void main() {
         brightness: Brightness.dark,
       );
       final g = await t.startGesture(t.getCenter(find.text('Esc').at(1)));
-      await t.pump(const Duration(milliseconds: 60));
+      await t.pump(const Duration(milliseconds: 300));
       await expectGolden(find.byType(MaterialApp), 'keybar_states_dark');
       await g.cancel();
       await t.pumpAndSettle();
