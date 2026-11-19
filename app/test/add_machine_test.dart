@@ -356,6 +356,81 @@ void main() {
       expect(c.read(sshMachinesProvider).single.corePath, '');
     });
 
+    Future<void> typeCorePath(WidgetTester tester, String text) async {
+      await tester.ensureVisible(find.text('Advanced'));
+      await tester.tap(find.text('Advanced'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, text);
+    }
+
+    for (final (pasted, want) in [
+      ('"C:\\Program Files\\HyperOx\\h0x-core.exe"', r'C:\Program Files\HyperOx\h0x-core.exe'),
+      (' "G:\\HyperOx\\core\\h0x-core.exe" ', r'G:\HyperOx\core\h0x-core.exe'),
+      ("'/opt/hyper ox/h0x-core'", '/opt/hyper ox/h0x-core'),
+    ]) {
+      testWidgets('a pasted path in quotes is stored without them: $pasted', (tester) async {
+        // Found bug: the field is only trimmed of whitespace, so the quotes
+        // become part of the path and the probe never finds the file.
+        final (c, gw) = await _pumpRouted(tester);
+        await _fill(tester);
+        await typeCorePath(tester, pasted);
+        await _connect(tester);
+        expect(gw.sessions.last.machine.corePath, want);
+        expect(c.read(sshMachinesProvider).single.corePath, want);
+      });
+    }
+
+    testWidgets('tabs and newlines pasted around the path are trimmed', (tester) async {
+      final (_, gw) = await _pumpRouted(tester);
+      await _fill(tester);
+      await typeCorePath(tester, '\t/opt/hyperox/h0x-core\n');
+      await _connect(tester);
+      expect(gw.sessions.last.machine.corePath, '/opt/hyperox/h0x-core');
+    });
+
+    testWidgets('a path of only spaces is no path', (tester) async {
+      final (c, gw) = await _pumpRouted(tester);
+      await _fill(tester);
+      await typeCorePath(tester, '    ');
+      await _connect(tester);
+      expect(gw.sessions.last.machine.corePath, '');
+      expect(c.read(sshMachinesProvider).single.toJson().containsKey('corePath'), isFalse);
+    });
+
+    testWidgets('UNC, unicode and odd characters are kept exactly', (tester) async {
+      const p = r'\\server\share\Zoë 核心\R&D 100% (x86)\h0x-core.exe';
+      final (_, gw) = await _pumpRouted(tester);
+      await _fill(tester);
+      await typeCorePath(tester, p);
+      await _connect(tester);
+      expect(gw.sessions.last.machine.corePath, p);
+    });
+
+    testWidgets('a failure that is not CoreMissing leaves Advanced closed', (tester) async {
+      await _pumpRouted(
+        tester,
+        behavior: FakeBehavior(end: const Failed('login refused: add the phone key to ~/.ssh/authorized_keys')),
+      );
+      await _fill(tester);
+      await _connect(tester);
+      expect(find.text('Permission denied (publickey)'), findsOneWidget);
+      expect(find.text('Core path (optional)'), findsNothing);
+    });
+
+    testWidgets('closed by hand after CoreMissing, Advanced opens again on the next CoreMissing', (tester) async {
+      await _pumpRouted(tester, behavior: FakeBehavior(end: const CoreMissing(missingCoreMessage)));
+      await _fill(tester);
+      await _connect(tester);
+      expect(find.text('Core path (optional)'), findsOneWidget);
+      await tester.ensureVisible(find.text('Advanced'));
+      await tester.tap(find.text('Advanced'));
+      await tester.pumpAndSettle();
+      expect(find.text('Core path (optional)'), findsNothing);
+      await _connect(tester);
+      expect(find.text('HyperOx core not found'), findsOneWidget);
+      expect(find.text('Core path (optional)'), findsOneWidget);
+    });
+
     testWidgets('golden: the Advanced field open, light', (tester) async {
       await pumpGolden(
         tester,
