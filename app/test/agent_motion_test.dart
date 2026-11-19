@@ -184,8 +184,7 @@ void main() {
       mock(t);
       final fake = FakeConnection();
       await _open(t, fake, id: 't1');
-      fake.emitView('t1', utf8.encode('working
-'));
+      fake.emitView('t1', utf8.encode('working\r\n'));
       await t.pump(const Duration(milliseconds: 1700));
       await t.tap(find.byTooltip('Interrupt claude'));
       await t.pump(const Duration(milliseconds: 400));
