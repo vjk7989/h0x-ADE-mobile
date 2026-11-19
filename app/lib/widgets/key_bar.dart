@@ -27,16 +27,15 @@ const _keys = [
   _K('↓', Key.down, speak: 'Down'),
   _K('←', Key.left, speak: 'Left'),
   _K('→', Key.right, speak: 'Right'),
-  _K('|', Key('|'), speak: 'Pipe'),
-  _K('~', Key('~'), speak: 'Tilde'),
   _K('/', Key('/'), speak: 'Slash'),
   _K('-', Key('-'), speak: 'Dash'),
   _K('Home', Key('home'), wide: true),
   _K('End', Key('end'), wide: true),
 ];
 
-/// The last row above the keyboard: Esc Tab Ctrl Alt arrows | ~ / - Home End
-/// scroll sideways, Enter stays pinned on the right. Ctrl and Alt are
+/// The last row above the keyboard: Esc Tab Ctrl Alt arrows / - Home End
+/// scroll sideways (core's key table has no | or ~, so the design's two
+/// symbol keys are left out), Enter stays pinned on the right. Ctrl and Alt are
 /// sticky: one tap is for the next key only, a second tap locks.
 class KeyBar extends StatelessWidget {
   const KeyBar({

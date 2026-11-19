@@ -73,7 +73,8 @@ class _Dartssh2Transport implements SshTransport {
       // No key (Tailscale SSH): the client offers the `none` method and the
       // tailnet decides.
       identities: key == null ? null : [key!.pair],
-      onVerifyHostKey: verify,
+      // dartssh2 hands over the `SHA256:...` text as UTF-8 bytes.
+      onVerifyHostKey: (type, fp) => verify(type, utf8.decode(fp)),
     );
     try {
       await client.authenticated;

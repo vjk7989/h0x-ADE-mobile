@@ -68,6 +68,10 @@ const _csi = {
   'F': 'end',
 };
 
+/// The characters core's key table names (crates/h0x-core/src/keys.rs):
+/// lowercase letters, digits and these. Capitals go as shift+letter.
+final _coreChars = RegExp(r"^[a-z0-9`\\[\],=\-.';/]$");
+
 const _tilde = {'3': 'delete', '5': 'pageup', '6': 'pagedown'};
 
 /// What the terminal view's `onOutput` wrote (typed text and escape
@@ -118,9 +122,14 @@ List<Key> keysFromOutput(String data) {
       keys.add(const Key('space'));
     } else if (c >= 0x01 && c <= 0x1a) {
       keys.add(Key('ctrl+${String.fromCharCode(0x60 + c)}'));
-    } else if (c >= 0x20) {
+    } else if (c >= 0x41 && c <= 0x5a) {
+      // Core lowercases key names: a capital is shift+letter.
+      keys.add(Key('shift+${String.fromCharCode(c + 0x20)}'));
+    } else if (c >= 0x20 && c < 0x7f && _coreChars.hasMatch(String.fromCharCode(c))) {
       keys.add(Key(String.fromCharCode(c)));
     }
+    // Anything else has no core key name (terminal.keys has no raw text);
+    // it is dropped. Compose and Send carry such text.
   }
   return keys;
 }

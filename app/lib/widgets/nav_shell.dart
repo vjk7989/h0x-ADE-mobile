@@ -1,6 +1,8 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 
+import '../state/inbox.dart';
 import '../theme/themes.dart';
 import '../theme/type.dart';
 
@@ -21,7 +23,7 @@ const _dests = [
 
 /// The five-item navigation: a bottom bar (80 dp) below 600 dp, a rail
 /// (80 dp wide) from 600 dp up (design/tokens.md section 6).
-class NavShell extends StatelessWidget {
+class NavShell extends ConsumerWidget {
   const NavShell({super.key, required this.location, required this.child});
 
   final String location;
@@ -33,14 +35,20 @@ class NavShell extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = context.hx.colors;
     final wide = MediaQuery.sizeOf(context).width >= 600;
-    Widget item(int i, {required bool rail}) => _NavItem(
-      dest: _dests[i],
-      selected: i == _index,
-      rail: rail,
-      onTap: () => context.go(_dests[i].path),
+    final inbox = ref.watch(inboxProvider).value;
+    Widget item(int i, {required bool rail}) => ValueListenableBuilder<InboxState>(
+      valueListenable: inbox,
+      builder: (context, state, _) => _NavItem(
+        dest: _dests[i],
+        selected: i == _index,
+        rail: rail,
+        // The Inbox shows how many agents need the person.
+        badge: i == 0 ? state.needsYou : 0,
+        onTap: () => context.go(_dests[i].path),
+      ),
     );
     if (wide) {
       return Scaffold(
@@ -95,21 +103,24 @@ class _NavItem extends StatelessWidget {
     required this.selected,
     required this.rail,
     required this.onTap,
+    this.badge = 0,
   });
 
   final _Dest dest;
   final bool selected;
   final bool rail;
   final VoidCallback onTap;
+  final int badge;
 
   @override
   Widget build(BuildContext context) {
     final c = context.hx.colors;
     final color = selected ? c.accent : c.muted;
+    final base = selected ? '${dest.label}, selected' : dest.label;
     return Semantics(
       button: true,
       selected: selected,
-      label: selected ? '${dest.label}, selected' : dest.label,
+      label: badge > 0 ? '$base, $badge needs you' : base,
       excludeSemantics: true,
       onTap: onTap,
       child: InkWell(
@@ -128,7 +139,34 @@ class _NavItem extends StatelessWidget {
                   color: selected ? c.selected : null,
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(dest.icon, size: 24, color: color),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Icon(dest.icon, size: 24, color: color),
+                    if (badge > 0)
+                      Positioned(
+                        top: 0,
+                        right: 8,
+                        child: Container(
+                          constraints: const BoxConstraints(minWidth: 16),
+                          height: 16,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: c.working,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '$badge',
+                            style: HxType.mono.copyWith(
+                              fontSize: 10.5,
+                              color: c.screen,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
               const SizedBox(height: 4),
               Text(

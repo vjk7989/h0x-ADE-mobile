@@ -397,6 +397,57 @@ class SshMachineConnection implements MachineConnection {
     return action();
   }
 
+  // ---- files ----
+
+  String? _home;
+
+  @override
+  Future<String> appHome() async {
+    final cached = _home;
+    if (cached != null) return cached;
+    final rpc = await _ready();
+    final line = _windows
+        ? r'if defined H0X_ADE_HOME (echo %H0X_ADE_HOME%) else if defined XDG_CONFIG_HOME '
+              r'(echo %XDG_CONFIG_HOME%\h0x-ade) else (echo %USERPROFILE%\.config\h0x-ade)'
+        : r'printf %s "${H0X_ADE_HOME:-${XDG_CONFIG_HOME:-$HOME/.config}/h0x-ade}"';
+    final r = await rpc.call('machine.exec', {'line': line}) as Map<String, dynamic>;
+    final out = utf8.decode(base64.decode(r['stdout'] as String? ?? ''), allowMalformed: true).trim();
+    if (r['code'] != 0 || out.isEmpty) {
+      throw StateError('cannot find the app folder on ${target.name}');
+    }
+    return _home = out;
+  }
+
+  @override
+  Future<String?> readFile(String path) async {
+    final rpc = await _ready();
+    final text = StringBuffer();
+    var offset = 1;
+    // core may give a long file in several parts, whole lines each
+    while (true) {
+      final Map<String, dynamic> r;
+      try {
+        r = await rpc.call('file.read', {'path': path, 'offset': offset}) as Map<String, dynamic>;
+      } on CoreRpcException catch (e) {
+        if (e.kind == 'not_found') return null;
+        rethrow;
+      }
+      text.write(r['text'] as String? ?? '');
+      final last = r['last'] as int? ?? 0;
+      if (last >= (r['lines'] as int? ?? 0)) break;
+      offset = last + 1;
+    }
+    return text.toString();
+  }
+
+  @override
+  Future<void> writeFile(String path, String text) async {
+    await (await _ready()).call('file.write', {
+      'path': path,
+      'data': base64.encode(utf8.encode(text)),
+    });
+  }
+
   // ---- spaces: a second exec (core's bridge keeps them) ----
 
   @override

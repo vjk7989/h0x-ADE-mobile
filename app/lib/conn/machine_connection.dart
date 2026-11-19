@@ -182,7 +182,7 @@ class SpacesView {
     if (rawSpaces is! List || rawAgents is! List) {
       throw const FormatException('spaces: "spaces"/"agents" must be lists');
     }
-    String str(Map m, String k) {
+    String str(Map<String, dynamic> m, String k) {
       final v = m[k];
       if (v is! String) throw FormatException('spaces: missing "$k"');
       return v;
@@ -190,12 +190,12 @@ class SpacesView {
 
     return SpacesView(
       spaces: [
-        for (final s in rawSpaces.cast<Map>())
+        for (final s in rawSpaces.cast<Map<String, dynamic>>())
           Space(
             name: str(s, 'name'),
             folder: str(s, 'folder'),
             tabs: [
-              for (final t in ((s['tabs'] ?? const []) as List).cast<Map>())
+              for (final t in ((s['tabs'] ?? const []) as List).cast<Map<String, dynamic>>())
                 SpaceTab(
                   name: str(t, 'name'),
                   panes: [...((t['panes'] ?? const []) as List).cast<String>()],
@@ -204,7 +204,7 @@ class SpacesView {
           ),
       ],
       agents: [
-        for (final a in rawAgents.cast<Map>())
+        for (final a in rawAgents.cast<Map<String, dynamic>>())
           AgentSlot(
             slot: a['slot'] is int
                 ? a['slot'] as int
@@ -349,5 +349,18 @@ abstract class MachineConnection {
   /// observer never resizes a terminal (core: observe = watch only).
   Future<TermView> view(String terminal, {int history = 5000});
   Stream<Notice> notices();
+
+  /// The absolute folder of the desktop app's files on that machine
+  /// (`$H0X_ADE_HOME`, else `~/.config/h0x-ade`). SSH only.
+  Future<String> appHome();
+
+  /// A text file on that machine, or null when it does not exist. Throws for
+  /// anything else (not text, too large, no access). SSH only.
+  Future<String?> readFile(String path);
+
+  /// Writes a text file atomically (core writes beside it and renames),
+  /// creating folders. SSH only.
+  Future<void> writeFile(String path, String text);
+
   Future<void> close();
 }

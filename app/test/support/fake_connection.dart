@@ -6,11 +6,19 @@ import 'package:hyperox/conn/machine_connection.dart';
 /// contract fixture: t1 working, t2 blocked on a permission, t3 blocked on a
 /// question; reading t1 gives "hello t1".
 class FakeConnection implements MachineConnection {
-  FakeConnection({this.mode = ConnMode.ssh}) {
-    _state.add(const Ready());
+  FakeConnection({
+    this.mode = ConnMode.ssh,
+    this.id = 'fake',
+    this.name = 'fake',
+    Map<String, Session>? sessions,
+  }) {
+    if (sessions != null) live = sessions;
   }
 
   final ConnMode mode;
+  final String id;
+  final String name;
+  ConnState _last = const Ready();
   final _state = StreamController<ConnState>.broadcast(sync: true);
   final _notices = StreamController<Notice>.broadcast(sync: true);
   final _views = <String, StreamController<List<int>>>{};
@@ -42,10 +50,19 @@ class FakeConnection implements MachineConnection {
 
   @override
   MachineInfo get machine =>
-      MachineInfo(id: 'fake', name: 'fake', os: 'linux', mode: mode, online: !closed);
+      MachineInfo(id: id, name: name, os: 'linux', mode: mode, online: !closed && _last is Ready);
 
   @override
-  Stream<ConnState> get state => _state.stream;
+  Stream<ConnState> get state => Stream<ConnState>.multi((c) {
+        c.add(_last);
+        final sub = _state.stream.listen(c.add, onDone: c.close);
+        c.onCancel = sub.cancel;
+      });
+
+  void setState(ConnState s) {
+    _last = s;
+    _state.add(s);
+  }
 
   void emitNotice(Notice n) => _notices.add(n);
 
@@ -54,15 +71,22 @@ class FakeConnection implements MachineConnection {
   @override
   Future<List<Session>> sessions() async => live.values.toList();
 
+  /// What spaces() gives (tests replace it); [spacesError] makes it throw.
+  SpacesView spacesView = const SpacesView(
+    spaces: [
+      Space(name: 'app', folder: '/srv/a', tabs: [
+        SpaceTab(name: 'main', panes: ['build'])
+      ])
+    ],
+    agents: [AgentSlot(slot: 1, name: 'claude', command: 'claude')],
+  );
+  Object? spacesError;
+
   @override
-  Future<SpacesView> spaces() async => const SpacesView(
-        spaces: [
-          Space(name: 'app', folder: '/srv/a', tabs: [
-            SpaceTab(name: 'main', panes: ['build'])
-          ])
-        ],
-        agents: [AgentSlot(slot: 1, name: 'claude', command: 'claude')],
-      );
+  Future<SpacesView> spaces() async {
+    if (spacesError != null) throw spacesError!;
+    return spacesView;
+  }
 
   Reply _unknown(String t) => ReplyFailed('no such terminal: $t');
 
@@ -157,14 +181,39 @@ class FakeConnection implements MachineConnection {
       close: () async {
         _views.remove(terminal);
         _sizes.remove(terminal);
-        await bytes.close();
-        await sizes.close();
+        // not awaited: close() of a stream nobody listens to never completes
+        unawaited(bytes.close());
+        unawaited(sizes.close());
       },
     );
   }
 
   @override
   Stream<Notice> notices() => _notices.stream;
+
+  /// The machine's files, by absolute path.
+  final files = <String, String>{};
+  var writes = 0;
+  Object? writeError;
+
+  /// Called before each read (tests change a file "on the computer" here).
+  void Function(String path)? onRead;
+
+  @override
+  Future<String> appHome() async => '/home/me/.config/h0x-ade';
+
+  @override
+  Future<String?> readFile(String path) async {
+    onRead?.call(path);
+    return files[path];
+  }
+
+  @override
+  Future<void> writeFile(String path, String text) async {
+    if (writeError != null) throw writeError!;
+    writes++;
+    files[path] = text;
+  }
 
   @override
   Future<void> close() async {

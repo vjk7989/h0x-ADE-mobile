@@ -286,7 +286,7 @@ void main() {
 
     test('backpressure: a paused listener holds back credit until it resumes', () async {
       link = MemLink();
-      rpc = CoreRpc(link, creditEvery: 100);
+      rpc = CoreRpc(link, creditEvery: 60);
       await ready();
       final f = rpc.attach(terminal: 't1', cols: 80, rows: 24);
       link.push(jsonFrame(0, {

@@ -8,7 +8,7 @@ void main() {
   group('keysFromOutput', () {
     test('typed text becomes one key per character', () {
       expect(names(keysFromOutput('ls')), ['l', 's']);
-      expect(names(keysFromOutput('A')), ['A']);
+      expect(names(keysFromOutput('A')), ['shift+a']);
     });
 
     test('control keys', () {
@@ -41,8 +41,20 @@ void main() {
       expect(keysFromOutput(''), isEmpty);
     });
 
-    test('non-ASCII characters are one key each', () {
-      expect(names(keysFromOutput('é€')), ['é', '€']);
+    test('capitals are shift+letter, as core lowercases key names', () {
+      expect(names(keysFromOutput('Ab')), ['shift+a', 'b']);
+    });
+
+    test('characters core has no key name for are dropped', () {
+      expect(keysFromOutput('é€|~!'), isEmpty);
+      expect(names(keysFromOutput('a|b')), ['a', 'b']);
+    });
+
+    test('the punctuation core knows is kept', () {
+      expect(names(keysFromOutput("/-.,;=[]'")), [
+        '/', '-', '.', ',', ';', '=', '[', ']', "'",
+      ]);
+      expect(names(keysFromOutput('5')), ['5']);
     });
   });
 

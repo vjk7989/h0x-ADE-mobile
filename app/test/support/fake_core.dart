@@ -8,6 +8,19 @@ import 'package:hyperox/conn/ssh/ssh_transport.dart';
 
 import 'mem_link.dart';
 
+List<String> linesKeepEnds(String t) {
+  final out = <String>[];
+  var start = 0;
+  for (var i = 0; i < t.length; i++) {
+    if (t[i] == '\n') {
+      out.add(t.substring(start, i + 1));
+      start = i + 1;
+    }
+  }
+  if (start < t.length) out.add(t.substring(start));
+  return out;
+}
+
 class FakeCoreError implements Exception {
   FakeCoreError(this.kind, this.message);
   final String kind;
@@ -39,6 +52,10 @@ class FakeCoreState {
 
   /// `method params-json` of every call received, in order.
   final calls = <String>[];
+
+  /// The machine's files, by absolute path; core gives [pageLines] lines per read.
+  final files = <String, String>{};
+  var pageLines = 1000;
   final closedChannels = <int>[];
   var _channel = 0;
   FakeCoreProcess? process;
@@ -77,6 +94,28 @@ class FakeCoreState {
       case 'events.subscribe':
         final ch = ++_channel;
         return {'channel': ch, 'seq': 0, 'terminals': terminals.values.toList()};
+      case 'machine.exec':
+        return {
+          'code': 0,
+          'stdout': base64.encode(utf8.encode('/home/me/.config/h0x-ade\n')),
+          'stderr': '',
+          'ms': 1,
+          'timed_out': false,
+        };
+      case 'file.read':
+        final text = files[p['path']] ?? (throw FakeCoreError('not_found', 'no file'));
+        final all = linesKeepEnds(text);
+        final first = (p['offset'] as int?) ?? 1;
+        final part = all.skip(first - 1).take(pageLines).toList();
+        return {
+          'text': part.join(),
+          'first': first,
+          'last': first + part.length - 1,
+          'lines': all.length,
+        };
+      case 'file.write':
+        files[p['path'] as String] = utf8.decode(base64.decode(p['data'] as String));
+        return {'path': p['path'], 'bytes': 0};
       default:
         throw FakeCoreError('unknown_method', method);
     }

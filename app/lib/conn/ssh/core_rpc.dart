@@ -193,10 +193,10 @@ class CoreRpc {
     final channel = r['channel'] as int;
     final chan = _chans[channel]!;
     final t = (r['terminal'] as Map).cast<String, dynamic>();
-    final cols = t['cols'], rows = t['rows'];
+    final tc = t['cols'], tr = t['rows'];
     return AttachedStream._(
       t,
-      TermSize(cols is int && cols > 0 ? cols : 80, rows is int && rows > 0 ? rows : 24),
+      TermSize(tc is int && tc > 0 ? tc : 80, tr is int && tr > 0 ? tr : 24),
       chan.raw.stream,
       chan.sizes.stream,
       () => _closeChannel(channel, notifyCore: true),
@@ -277,7 +277,7 @@ class CoreRpc {
     }
     final err = msg['error'];
     if (err is Map) {
-      final e = _rpcError(err);
+      final e = _rpcError(err.cast<String, dynamic>());
       pending?.completeError(e);
       _fail(e);
       _link.close();
@@ -367,7 +367,7 @@ class CoreRpc {
       if (c == null) return;
       final err = m['error'];
       if (err is Map) {
-        c.completeError(_rpcError(err));
+        c.completeError(_rpcError(err.cast<String, dynamic>()));
         return;
       }
       final result = m['result'];
@@ -389,7 +389,7 @@ class CoreRpc {
     }
   }
 
-  CoreRpcException _rpcError(Map err) {
+  CoreRpcException _rpcError(Map<String, dynamic> err) {
     final data = err['data'];
     return CoreRpcException(
       (err['code'] as num?)?.toInt() ?? -32603,

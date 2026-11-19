@@ -44,10 +44,6 @@ abstract class SshGateway {
   Future<PhoneKeyInfo> phoneKey();
   SshSession open(SshMachine machine);
 
-  /// A started, long-lived connection for the screens (inbox, agent), or
-  /// null when this build has no transport.
-  MachineConnection? connect(SshMachine machine);
-
   /// The trusted host key fingerprint of [machine], if any.
   Future<String?> knownFingerprint(SshMachine machine);
 }

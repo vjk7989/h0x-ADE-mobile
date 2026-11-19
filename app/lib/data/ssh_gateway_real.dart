@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import '../conn/machine_connection.dart';
 import '../conn/ssh/known_hosts.dart';
 import '../conn/ssh/ssh_connection.dart';
@@ -44,25 +42,6 @@ class RealSshGateway implements SshGateway {
       keys: _keys,
     ),
   );
-
-  @override
-  MachineConnection connect(SshMachine m) {
-    final c = SshMachineConnection(
-      target: SshTarget(
-        id: m.id,
-        name: m.name,
-        host: m.host,
-        port: m.port,
-        username: m.user,
-        useKey: !m.tailscale,
-      ),
-      transport: dartssh2Transport,
-      knownHosts: _known,
-      keys: _keys,
-    );
-    unawaited(c.start());
-    return c;
-  }
 
   @override
   Future<String?> knownFingerprint(SshMachine m) =>
