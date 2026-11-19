@@ -212,6 +212,14 @@ void main() {
       final g = await t.startGesture(t.getCenter(find.text('Esc').at(1)));
       await t.pump(); // the animations start on their first frame
       await t.pump(const Duration(milliseconds: 300));
+      Color? cap(int i) => (find
+              .ancestor(of: find.text('Esc').at(i), matching: find.byType(AnimatedContainer))
+              .evaluate()
+              .map((e) => (e.widget as AnimatedContainer).decoration)
+              .whereType<BoxDecoration>()
+              .first)
+          .color;
+      expect(cap(1), isNot(cap(0)), reason: 'the held Esc has a pressed fill: ${cap(1)} vs ${cap(0)}');
       await expectGolden(find.byType(MaterialApp), 'keybar_states_dark');
       await g.cancel();
       await t.pumpAndSettle();
