@@ -159,10 +159,28 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
     }
   }
 
+  /// Messages float above the compose row and the key bar, never over them
+  /// (tokens section 13): inverse fill, 16 dp margins, radius 12.
+  final _bottomKey = GlobalKey();
+
   void _snack(String text) {
+    final c = context.hx.colors;
+    final lift = (_bottomKey.currentContext?.size?.height ?? 100) + 8;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(text)));
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: c.foreground,
+          margin: EdgeInsets.fromLTRB(16, 0, 16, lift),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          content: Text(
+            text,
+            style: HxType.body.copyWith(color: c.screen),
+          ),
+        ),
+      );
   }
 
   Future<void> _send() async {
@@ -302,7 +320,11 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
                 },
                 onBack: () => context.go('/inbox'),
               )
-            else ...[
+            else
+              Column(
+                key: _bottomKey,
+                mainAxisSize: MainAxisSize.min,
+                children: [
               _ComposeRow(
                 name: name,
                 controller: _compose,
@@ -318,7 +340,8 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
                 disabledReason: reason,
                 onKeys: (keys) => _handle(a.sendKeys(keys)),
               ),
-            ],
+                ],
+              ),
           ],
         );
     final body = !wide || widget.embedded

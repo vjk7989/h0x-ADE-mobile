@@ -13,6 +13,7 @@ import '../theme/type.dart';
 import '../widgets/app_shell.dart';
 import '../widgets/hx.dart';
 import '../widgets/hx_bits.dart';
+import '../widgets/hx_icons.dart';
 
 /// The desktop's to-do lists from a chosen computer (design: To-do). The
 /// files are the desktop's own Markdown; every change re-reads and writes.
@@ -38,6 +39,43 @@ TextStyle _hand(double size, {Color? color, bool strike = false, Color? strikeCo
       decorationThickness: 1.2,
     );
 
+/// Marks the card being dragged, so it draws lifted (shadow, grip).
+class _Lifted extends InheritedWidget {
+  const _Lifted({required super.child});
+
+  static bool of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_Lifted>() != null;
+
+  @override
+  bool updateShouldNotify(_Lifted old) => false;
+}
+
+/// Tells an inline edit to give up (the system Back button while editing).
+final _cancelEdit = ValueNotifier<int>(0);
+
+double _contrast(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  final hi = la > lb ? la : lb;
+  final lo = la > lb ? lb : la;
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/// The accent, moved toward white or black until it reads at 4.5:1 on
+/// [fill] (the inverse snackbar: `foreground` is the fill, so on a light
+/// theme it is dark and the accent is lightened, as the board's #8ab4ff).
+Color accentOnInverse(Color accent, Color fill) {
+  if (_contrast(accent, fill) >= 4.5) return accent;
+  final toward = fill.computeLuminance() < 0.4
+      ? const Color(0xFFFFFFFF)
+      : const Color(0xFF000000);
+  for (var i = 1; i <= 20; i++) {
+    final c = Color.lerp(accent, toward, i / 20)!;
+    if (_contrast(c, fill) >= 4.5) return c;
+  }
+  return toward;
+}
+
 class _TodoScreenState extends ConsumerState<TodoScreen> {
   String? _machineId;
   String? _loadedFor;
@@ -47,8 +85,34 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
   final _addController = TextEditingController();
   final _addFocus = FocusNode();
 
+  // Reorder: a drag in progress, where the pointer is, and the cards' keys
+  // (to find the hole the neighbours opened, where the accent line goes).
+  var _dragging = false;
+  var _dragY = 0.0;
+  double? _line;
+  final _stackKey = GlobalKey();
+  final _itemKeys = <int, GlobalKey>{};
+
+  // Inline edit: any field of this screen has the keyboard.
+  var _editing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    FocusManager.instance.addListener(_focusChanged);
+  }
+
+  void _focusChanged() {
+    final ctx = FocusManager.instance.primaryFocus?.context;
+    final editing = ctx != null &&
+        ctx.findAncestorWidgetOfExactType<EditableText>() != null &&
+        ctx.findAncestorStateOfType<_TodoScreenState>() == this;
+    if (editing != _editing && mounted) setState(() => _editing = editing);
+  }
+
   @override
   void dispose() {
+    FocusManager.instance.removeListener(_focusChanged);
     _addController.dispose();
     _addFocus.dispose();
     super.dispose();
@@ -67,9 +131,29 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
   void _say(String text, {SnackBarAction? action, Duration? duration}) {
     final m = ScaffoldMessenger.of(context);
     m.hideCurrentSnackBar();
+    final c = context.hx.colors;
+    // Floating and inverse: `foreground` fill, `screen` text, 16 dp side
+    // margins, radius 12, 56 dp tall, 12 dp above the bottom.
     m.showSnackBar(SnackBar(
-      content: Text(text),
-      action: action,
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: c.foreground,
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 56),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(text, style: HxType.body.copyWith(color: c.screen, fontSize: 13.5)),
+        ),
+      ),
+      action: action == null
+          ? null
+          : SnackBarAction(
+              label: action.label,
+              textColor: accentOnInverse(c.accent, c.foreground),
+              onPressed: action.onPressed,
+            ),
       persist: false,
       duration: duration ?? const Duration(seconds: 4),
     ));
@@ -430,12 +514,63 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
       body = _tasks(context, c, s, list, banners, open, done, total);
     }
 
-    return Column(
-      children: [
-        header,
-        Expanded(child: body),
-      ],
+    return PopScope(
+      // Back while editing cancels the edit; it does not leave the screen.
+      canPop: !_editing,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _cancelEdit.value++;
+      },
+      child: Column(
+        children: [
+          header,
+          Expanded(child: body),
+          if (_editing) const _EditBar(),
+        ],
+      ),
     );
+  }
+
+  /// While a card is dragged, measure the hole after every frame: it moves
+  /// as the neighbours animate away.
+  void _trackLine() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_dragging) return;
+      final y = _lineTop();
+      if (y != _line) setState(() => _line = y);
+      WidgetsBinding.instance.scheduleFrame();
+      _trackLine();
+    });
+  }
+
+  /// The y of the accent line: the middle of the hole the neighbours opened
+  /// for the dragged card (or just outside the first or last card).
+  double? _lineTop() {
+    final stack = _stackKey.currentContext?.findRenderObject();
+    if (!_dragging || stack is! RenderBox || !stack.hasSize) return null;
+    final rects = <Rect>[];
+    for (final key in _itemKeys.values) {
+      final ctx = key.currentContext;
+      final ro = ctx?.findRenderObject();
+      // The lifted copy in the overlay is not a card of the list.
+      if (ctx == null || _Lifted.of(ctx)) continue;
+      if (ro is RenderBox && ro.attached && ro.hasSize) {
+        rects.add(stack.globalToLocal(ro.localToGlobal(Offset.zero)) & ro.size);
+      }
+    }
+    if (rects.isEmpty) return null;
+    rects.sort((a, b) => a.top.compareTo(b.top));
+    var best = 0.0;
+    double? at;
+    for (var i = 0; i < rects.length - 1; i++) {
+      final gap = rects[i + 1].top - rects[i].bottom;
+      if (gap > best) {
+        best = gap;
+        at = rects[i].bottom + gap / 2;
+      }
+    }
+    if (at != null && best > 30) return at - 1.25;
+    final y = stack.globalToLocal(Offset(0, _dragY)).dy;
+    return y < rects.first.center.dy ? rects.first.top - 3 : rects.last.bottom + 3;
   }
 
   Widget _tasks(BuildContext context, TodoController c, TodoState s, TodoList list,
@@ -560,10 +695,32 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
             ],
           );
 
-    return ReorderableListView(
+    final accent = colors.accent;
+    final reorderable = ReorderableListView(
       buildDefaultDragHandles: false,
       header: head,
       footer: foot,
+      // The lifted card: shadow (black 25 %, blur 8, y +8), scale 1.02 and a
+      // grip in place of the chevron. Its slot collapses; the neighbours
+      // move to make room.
+      proxyDecorator: (child, index, animation) => AnimatedBuilder(
+        animation: animation,
+        builder: (context, _) {
+          final t = Curves.easeOut.transform(animation.value);
+          return Transform.scale(
+            scale: 1 + 0.02 * t,
+            child: Material(
+              type: MaterialType.transparency,
+              child: _Lifted(child: child),
+            ),
+          );
+        },
+      ),
+      onReorderStart: (_) {
+        setState(() => _dragging = true);
+        _trackLine();
+      },
+      onReorderEnd: (_) => setState(() => _dragging = false),
       onReorder: (a, b) {
         if (readOnly) return;
         if (b > a) b -= 1;
@@ -578,6 +735,7 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
               index: k,
               enabled: !readOnly,
               child: _TaskCard(
+                key: _itemKeys.putIfAbsent(openIdx[k], GlobalKey.new),
                 task: list.tasks[openIdx[k]],
                 index: openIdx[k],
                 expanded: _expanded.contains(openIdx[k]),
@@ -602,6 +760,78 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
             ),
           ),
       ],
+    );
+    final line = _dragging ? _line : null;
+    return Listener(
+      onPointerMove: (e) {
+        if (_dragging) setState(() => _dragY = e.position.dy);
+      },
+      child: Stack(
+        key: _stackKey,
+        children: [
+          reorderable,
+          if (line != null)
+            Positioned(
+              top: line,
+              left: 16,
+              right: 16,
+              height: 2.5,
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: accent,
+                    borderRadius: BorderRadius.circular(1.25),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The bar above the keyboard while a title is being edited.
+class _EditBar extends StatelessWidget {
+  const _EditBar();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.hx.colors;
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.only(left: 16, right: 4),
+      decoration: BoxDecoration(
+        color: c.chrome,
+        border: Border(top: BorderSide(color: c.hairline)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              'Done saves · Back cancels',
+              style: HxType.mono.copyWith(color: c.muted, fontSize: 12),
+            ),
+          ),
+          Semantics(
+            button: true,
+            label: 'Done',
+            excludeSemantics: true,
+            onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+            child: InkWell(
+              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 64, minHeight: 48),
+                alignment: Alignment.center,
+                child: Text(
+                  'Done',
+                  style: HxType.weight(HxType.bodyLg, 600).copyWith(color: c.accent),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -983,10 +1213,20 @@ class _TitleState extends State<_Title> {
     _focus.addListener(() {
       if (!_focus.hasFocus && _editing) _commit();
     });
+    _cancelEdit.addListener(_cancel);
+  }
+
+  /// Back while editing: drop the typing and leave the title as it was.
+  void _cancel() {
+    if (!_editing) return;
+    _controller.text = widget.text;
+    setState(() => _editing = false);
+    _focus.unfocus();
   }
 
   @override
   void dispose() {
+    _cancelEdit.removeListener(_cancel);
     _controller.dispose();
     _focus.dispose();
     super.dispose();
@@ -1066,12 +1306,31 @@ class _TaskCard extends StatelessWidget {
     final doneSteps = steps.where((s) => s.done).length;
     final scale = MediaQuery.textScalerOf(context).scale(18) / 18;
     final big = scale >= 1.5;
-    final card = Container(
+    final lifted = _Lifted.of(context);
+    final card = Builder(builder: (context) => Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      child: Builder(builder: (context) {
+      // The row being edited has a 1.5 dp accent edge.
+      final editing = Focus.of(context).hasFocus;
+      return Container(
       constraints: BoxConstraints(minHeight: big ? 56 : 52),
       decoration: BoxDecoration(
         color: c.card,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: c.hairline),
+        border: Border.all(
+          color: editing ? c.accent : c.hairline,
+          width: editing ? 1.5 : 1,
+        ),
+        boxShadow: lifted
+            ? [
+                BoxShadow(
+                  color: const Color(0xFF000000).withValues(alpha: 0.25),
+                  blurRadius: 8,
+                  offset: const Offset(0, 8),
+                ),
+              ]
+            : null,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1106,10 +1365,12 @@ class _TaskCard extends StatelessWidget {
                   child: SizedBox(
                     width: 48,
                     height: 48,
-                    child: Icon(
-                      expanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
-                      color: c.muted,
-                    ),
+                    child: lifted
+                        ? HxIcon('grip', size: 20, color: c.muted)
+                        : Icon(
+                            expanded ? Icons.keyboard_arrow_down : Icons.keyboard_arrow_right,
+                            color: c.muted,
+                          ),
                   ),
                 ),
               ),
@@ -1142,6 +1403,8 @@ class _TaskCard extends StatelessWidget {
         ],
       ),
     );
+    }),
+    ));
 
     final actions = <CustomSemanticsAction, VoidCallback>{
       if (!readOnly) const CustomSemanticsAction(label: 'Delete task'): () => onDelete(null),

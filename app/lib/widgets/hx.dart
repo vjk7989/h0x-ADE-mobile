@@ -9,7 +9,7 @@ enum HxButtonKind { primary, secondary, outline, danger }
 
 /// A 52 dp button (design/tokens.md section 11): one semantics node, label
 /// read as given, disabled at 38 % opacity.
-class HxButton extends StatelessWidget {
+class HxButton extends StatefulWidget {
   const HxButton({
     super.key,
     required this.label,
@@ -36,8 +36,25 @@ class HxButton extends StatelessWidget {
   final double minHeight;
 
   @override
+  State<HxButton> createState() => _HxButtonState();
+}
+
+class _HxButtonState extends State<HxButton> {
+  var _focused = false;
+
+  @override
   Widget build(BuildContext context) {
+    final label = widget.label;
+    final onPressed = widget.onPressed;
+    final icon = widget.icon;
+    final lucide = widget.lucide;
+    final leading = widget.leading;
+    final kind = widget.kind;
+    final minHeight = widget.minHeight;
     final c = context.hx.colors;
+    // A keyboard focus ring: 2 dp accent, only when the keyboard drives.
+    final ring = _focused &&
+        FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
     final (bg, fg, edge) = switch (kind) {
       HxButtonKind.primary => (c.solid, c.solidForeground, c.solid),
       HxButtonKind.secondary => (c.card, c.foreground, c.hairline),
@@ -48,7 +65,7 @@ class HxButton extends StatelessWidget {
     return Semantics(
       button: true,
       enabled: enabled,
-      label: semanticsLabel ?? label,
+      label: widget.semanticsLabel ?? label,
       excludeSemantics: true,
       onTap: onPressed,
       child: Opacity(
@@ -62,7 +79,14 @@ class HxButton extends StatelessWidget {
           child: InkWell(
             borderRadius: BorderRadius.circular(14),
             onTap: onPressed,
-            child: ConstrainedBox(
+            onFocusChange: (f) => setState(() => _focused = f),
+            child: Container(
+              foregroundDecoration: ring
+                  ? BoxDecoration(
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: c.accent, width: 2),
+                    )
+                  : null,
               constraints: BoxConstraints(minHeight: minHeight),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -72,7 +96,7 @@ class HxButton extends StatelessWidget {
                     if (leading != null || lucide != null || icon != null) ...[
                       leading ??
                           (lucide != null
-                              ? HxIcon(lucide!, size: 20, color: fg)
+                              ? HxIcon(lucide, size: 20, color: fg)
                               : Icon(icon, size: 20, color: fg)),
                       const SizedBox(width: 10),
                     ],
