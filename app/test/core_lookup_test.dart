@@ -624,7 +624,8 @@ void main() {
       rig.windows(shellError: _ps51NotRecognized, probe: probeOut(p));
       final c = rig.make();
       expect(await c.start(), isA<Ready>());
-      expect(rig.commands.last, '& "$p" connect');
+      // a single-quoted literal: PowerShell expands nothing in it
+      expect(rig.commands.last, "& '$p' connect");
       await c.close();
     });
 

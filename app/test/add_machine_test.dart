@@ -338,6 +338,37 @@ void main() {
       expect(c.read(sshMachinesProvider), isEmpty);
     });
 
+    test('cleanCorePath: trim, then one matching pair of quotes', () {
+      expect(cleanCorePath(r'  "C:\Program Files\HyperOx\h0x-core.exe"  '), r'C:\Program Files\HyperOx\h0x-core.exe');
+      expect(cleanCorePath("'/opt/hyper ox/h0x-core'"), '/opt/hyper ox/h0x-core');
+      expect(cleanCorePath(r' " C:\x\h0x-core.exe " '), r'C:\x\h0x-core.exe');
+      expect(cleanCorePath(r'"C:\x\h0x-core.exe'), r'"C:\x\h0x-core.exe', reason: 'unmatched: left alone');
+      expect(cleanCorePath('"a\''), '"a\'', reason: 'mixed: left alone');
+      expect(cleanCorePath('"'), '"');
+      expect(cleanCorePath('""'), '');
+      expect(cleanCorePath('   '), '');
+      expect(cleanCorePath(r"C:\O'Neil\h0x-core.exe"), r"C:\O'Neil\h0x-core.exe", reason: 'inner quote kept');
+    });
+
+    test('one damaged entry in the store is skipped, the others stay', () async {
+      SharedPreferences.setMockInitialValues({
+        'ssh.machines': jsonEncode([
+          {'id': 'a', 'name': 'a', 'host': 'h1', 'user': 'u', 'port': 22, 'corePath': 7},
+          {'id': 'b', 'name': 'b', 'host': 'h2', 'user': 'u', 'port': 'not a number'},
+          'junk',
+          null,
+          {'id': 'c', 'name': 'c', 'host': 'h3', 'user': 'u', 'port': 22, 'corePath': r'C:\x\h0x-core.exe'},
+        ]),
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final c = ProviderContainer(overrides: [sharedPrefsProvider.overrideWithValue(prefs)]);
+      addTearDown(c.dispose);
+      final ms = c.read(sshMachinesProvider);
+      // a wrong-typed corePath loads as none; a wrong-typed port drops only that entry
+      expect([for (final m in ms) m.id], ['a', 'c']);
+      expect([for (final m in ms) m.corePath], ['', r'C:\x\h0x-core.exe']);
+    });
+
     test('a machine saved before this existed still loads, and the path round-trips', () {
       final old = SshMachine.fromJson({'id': 'a', 'name': 'a', 'host': 'h', 'user': 'u', 'port': 22});
       expect(old.corePath, '');

@@ -192,30 +192,34 @@ class SshMachineConnection implements MachineConnection {
     return windowsRunCommand(f!, args, shell: _shell);
   }
 
-  /// Unix first (one command that looks in the usual places and starts the
-  /// core). If the login shell is Windows' (cmd or PowerShell), a probe finds
-  /// the core and a second command starts it. Tells a missing core, a chatty
-  /// login and a protocol mismatch apart.
+  /// Unix first: one command that looks in the usual places and starts the
+  /// core. Anything else it answers (the login shell is Windows' cmd or
+  /// PowerShell, in any language; or Git's `sh` found nothing on Windows) goes
+  /// to a probe, which says whether this is Windows (it always prints
+  /// `H0X_OS=windows`), finds the core, and a second command starts it.
+  /// Tells a missing core, a chatty login and a protocol mismatch apart.
   Future<_OpenCore> _openCore(SshTransport t) async {
     final unix = await _tryCore(t, unixCommand('connect', override: target.corePath), windows: false);
     if (unix.core != null) return unix.core!;
-    // Not the unix shell's answer: this is a Windows login.
     _shell = windowsShellFrom(unix.stderr);
     final probe = await t.exec(windowsProbeCommand(override: target.corePath));
     final out = readAll(probe.input);
     final err = readAll(probe.stderr);
     await probe.exitCode(timeout: const Duration(seconds: 15));
-    final found = parseWindowsProbe(await out.timeout(const Duration(seconds: 15), onTimeout: () => ''));
+    final text = await out.timeout(const Duration(seconds: 15), onTimeout: () => '');
     await err.timeout(const Duration(seconds: 1), onTimeout: () => '');
     await probe.close();
+    final windows = unix.onWindows || isWindowsProbe(text);
+    if (!windows) throw SshFatal('could not start h0x-core: ${unix.said}');
+    final found = parseWindowsProbe(text);
     if (found == null) throw SshCoreMissing(missingCoreMessage);
     _found = found;
     final win = await _tryCore(t, windowsRunCommand(found, 'connect', shell: _shell), windows: true);
     if (win.core != null) return win.core!;
-    throw win.fatal ?? SshFatal('could not start h0x-core');
+    throw SshFatal('could not start h0x-core: ${win.said}');
   }
 
-  Future<({_OpenCore? core, SshFatal? fatal, String stderr})> _tryCore(
+  Future<({_OpenCore? core, String stderr, String said, bool onWindows})> _tryCore(
     SshTransport t,
     String command, {
     required bool windows,
@@ -225,7 +229,7 @@ class SshMachineConnection implements MachineConnection {
     final rpc = CoreRpc(proc);
     try {
       await rpc.hello();
-      return (core: _OpenCore(rpc, windows), fatal: null, stderr: '');
+      return (core: _OpenCore(rpc, windows), stderr: '', said: '', onWindows: false);
     } on CoreRpcException catch (e) {
       await rpc.close();
       throw SshFatal(e.kind == 'unsupported_generation'
@@ -235,15 +239,19 @@ class SshMachineConnection implements MachineConnection {
       await rpc.close();
       final code = await proc.exitCode(timeout: const Duration(milliseconds: 500));
       final err = await stderr.timeout(const Duration(seconds: 1), onTimeout: () => '');
-      if (err.contains(coreNotHere) || code == 127) throw SshCoreMissing(missingCoreMessage);
-      if (!windows && windowsShellFrom(err) != WindowsShell.unknown) {
-        // the login shell is Windows': the caller probes
-        return (core: null, fatal: null, stderr: err);
-      }
-      if (e.banner && code == null) throw SshFatal(bannerMessage);
       final said = err.trim().isEmpty ? e.message : err.trim();
-      if (!windows) throw SshFatal('could not start h0x-core: $said');
-      return (core: null, fatal: SshFatal('could not start h0x-core: $said'), stderr: err);
+      if (!windows && err.contains(onWindowsMarker)) {
+        // sh ran, on Windows, and found no core there: Windows is searched next
+        return (core: null, stderr: err, said: said, onWindows: true);
+      }
+      if (err.contains(coreNotHere) || code == 127) throw SshCoreMissing(missingCoreMessage);
+      if (e.banner && code == null) throw SshFatal(bannerMessage);
+      if (!windows) {
+        // not a message this app knows: a Windows login says it in its own
+        // language, so the probe decides whether this is one
+        return (core: null, stderr: err, said: said, onWindows: false);
+      }
+      throw SshFatal('could not start h0x-core: $said');
     }
   }
 
