@@ -57,6 +57,7 @@ class HxPressable extends StatefulWidget {
 class _HxPressableState extends State<HxPressable> {
   var _down = false;
   var _focused = false;
+  var _hover = false;
 
   @override
   Widget build(BuildContext context) {
@@ -69,6 +70,16 @@ class _HxPressableState extends State<HxPressable> {
             FocusManager.instance.highlightMode == FocusHighlightMode.traditional);
     final dark = Theme.of(context).brightness == Brightness.dark;
     final ringColor = dark ? c.ring : c.accent;
+    // The state layer: pressed 12 %, keyboard-focused 12 %, hovered 8 %.
+    final keyboard =
+        FocusManager.instance.highlightMode == FocusHighlightMode.traditional;
+    final layerColor = _down
+        ? layer.withValues(alpha: HxMotion.pressedLayer)
+        : (_focused && keyboard) || widget.focusRingForTesting
+        ? layer.withValues(alpha: HxMotion.focusedLayer)
+        : _hover
+        ? layer.withValues(alpha: HxMotion.hoverLayer)
+        : const Color(0x00000000);
     Widget control = Material(
       color: widget.fill ?? Colors.transparent,
       shape: RoundedRectangleBorder(
@@ -79,26 +90,34 @@ class _HxPressableState extends State<HxPressable> {
         borderRadius: r,
         onTap: widget.onTap,
         onLongPress: widget.onLongPress,
-        overlayColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.pressed)) {
-            return layer.withValues(alpha: HxMotion.pressedLayer);
-          }
-          // A tap leaves focus on the control; the layer is for keyboard focus.
-          if (states.contains(WidgetState.focused) &&
-              FocusManager.instance.highlightMode == FocusHighlightMode.traditional) {
-            return layer.withValues(alpha: HxMotion.focusedLayer);
-          }
-          if (states.contains(WidgetState.hovered)) {
-            return layer.withValues(alpha: HxMotion.hoverLayer);
-          }
-          return null;
-        }),
+        // The state layer is drawn below, by us, so it is the same on every
+        // platform and shows in goldens; the ink keeps only its splash.
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        onHover: (h) => setState(() => _hover = h),
         onHighlightChanged: (v) {
           setState(() => _down = v);
           widget.onPressedChanged?.call(v);
         },
         onFocusChange: (f) => setState(() => _focused = f),
-        child: widget.child,
+        child: Stack(
+          // Pass the constraints through: the control keeps its width.
+          fit: StackFit.passthrough,
+          children: [
+            widget.child,
+            Positioned.fill(
+              child: IgnorePointer(
+                child: AnimatedContainer(
+                  duration: HxMotion.d(context, HxMotion.press, fade: true),
+                  curve: HxMotion.standard,
+                  decoration: BoxDecoration(
+                    color: layerColor,
+                    borderRadius: r,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
     if (ring) {
