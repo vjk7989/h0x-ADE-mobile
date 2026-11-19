@@ -78,16 +78,25 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state, child) =>
             NavShell(location: state.uri.path, child: child),
         routes: [
-          GoRoute(path: '/inbox', builder: (_, _) => const InboxScreen()),
+          GoRoute(
+            path: '/inbox',
+            pageBuilder: (_, _) => const NoTransitionPage(child: InboxScreen()),
+          ),
           GoRoute(
             path: '/machines',
-            builder: (_, _) => const MachinesScreen(),
+            pageBuilder: (_, _) => const NoTransitionPage(child: MachinesScreen()),
           ),
-          GoRoute(path: '/spaces', builder: (_, _) => const SpacesScreen()),
-          GoRoute(path: '/todo', builder: (_, _) => const TodoScreen()),
+          GoRoute(
+            path: '/spaces',
+            pageBuilder: (_, _) => const NoTransitionPage(child: SpacesScreen()),
+          ),
+          GoRoute(
+            path: '/todo',
+            pageBuilder: (_, _) => const NoTransitionPage(child: TodoScreen()),
+          ),
           GoRoute(
             path: '/settings',
-            builder: (_, _) => const SettingsScreen(),
+            pageBuilder: (_, _) => const NoTransitionPage(child: SettingsScreen()),
           ),
         ],
       ),

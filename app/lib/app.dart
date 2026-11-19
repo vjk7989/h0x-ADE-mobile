@@ -19,7 +19,9 @@ class HyperOxApp extends ConsumerWidget {
       darkTheme: themeData(themeById(choice.dark)),
       themeMode: choice.themeMode,
       builder: (context, child) =>
-          IntroGate(child: AppLockScope(child: child!)),
+          SplashThemeSync(
+            child: IntroGate(child: AppLockScope(child: child!)),
+          ),
       routerConfig: ref.watch(routerProvider),
     );
   }
