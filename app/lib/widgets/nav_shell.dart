@@ -211,7 +211,7 @@ class _FadeThroughState extends State<_FadeThrough>
     // The boundary still holds the last frame of the old tab: this runs
     // before the new body is painted.
     final box = _boundary.currentContext?.findRenderObject();
-    if (box is RenderRepaintBoundary && box.hasSize && !box.debugNeedsPaint) {
+    if (box is RenderRepaintBoundary && box.hasSize && box.layer != null) {
       _old?.dispose();
       _old = box.toImageSync(
         pixelRatio: MediaQuery.devicePixelRatioOf(context),

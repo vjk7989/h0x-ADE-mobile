@@ -72,7 +72,7 @@ class _ThemeCrossFadeState extends State<ThemeCrossFade>
     // This runs before the new theme is painted: the boundary still holds the
     // last frame of the old one.
     final box = _boundary.currentContext?.findRenderObject();
-    if (box is! RenderRepaintBoundary || !box.hasSize || box.debugNeedsPaint) return;
+    if (box is! RenderRepaintBoundary || !box.hasSize || box.layer == null) return;
     final watch = Stopwatch()..start();
     final shot = box.toImageSync(pixelRatio: MediaQuery.devicePixelRatioOf(context));
     if (watch.elapsed > widget.maxCapture) {
