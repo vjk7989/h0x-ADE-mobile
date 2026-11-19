@@ -152,7 +152,7 @@ class SshMachineConnection implements MachineConnection {
     while (!_closing) {
       _emit(const Connecting());
       // The wait before the next try, told to the listeners with the failure.
-      final Duration wait;
+      Duration wait;
       try {
         await _session();
         if (_closing) return;
