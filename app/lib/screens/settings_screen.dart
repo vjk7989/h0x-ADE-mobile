@@ -79,7 +79,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _copy(String line) async {
     await ref.read(copyTextProvider)(line);
     if (!mounted) return;
-    showHxSnack(context, const SnackBar(content: Text('Public key copied')));
+    showHxSnack(context, 'Public key copied');
   }
 
   Future<void> _forget(String key) async {

@@ -89,12 +89,10 @@ class _SpacesScreenState extends ConsumerState<SpacesScreen> {
       builder: (ctx) => _StartDialog(slot: slot, space: space, machine: conn.machine),
     );
     if (ok != true || !mounted) return;
-    final messenger = ScaffoldMessenger.of(context);
     var r = await conn.run(space.folder, slot.command);
     if (r is NeedsConfirm) r = await conn.confirm(r.token);
-    messenger.showSnackBar(SnackBar(
-      content: Text(r is Done ? 'Started ${slot.name}' : _failText(r)),
-    ));
+    if (!mounted) return;
+    showHxSnack(context, r is Done ? 'Started ${slot.name}' : _failText(r));
     if (r is Done) await ref.read(spacesControllerProvider(conn.machine.id)).load();
   }
 

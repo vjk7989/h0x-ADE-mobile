@@ -83,7 +83,7 @@ void main() {
         body: Builder(
           builder: (context) => Center(
             child: TextButton(
-              onPressed: () => showHxSnack(context, const SnackBar(content: Text('Saved'))),
+              onPressed: () => showHxSnack(context, 'Saved', actionLabel: 'Undo'),
               child: const Text('Save'),
             ),
           ),

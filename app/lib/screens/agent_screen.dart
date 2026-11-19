@@ -166,23 +166,8 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
   final _bottomKey = GlobalKey();
 
   void _snack(String text) {
-    final c = context.hx.colors;
     final lift = (_bottomKey.currentContext?.size?.height ?? 100) + 8;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: c.foreground,
-          margin: EdgeInsets.fromLTRB(16, 0, 16, lift),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          content: Text(
-            text,
-            style: HxType.body.copyWith(color: c.screen),
-          ),
-        ),
-      );
+    showHxSnack(context, text, bottom: lift);
   }
 
   Future<void> _send() async {

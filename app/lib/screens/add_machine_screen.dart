@@ -255,9 +255,7 @@ class _AddMachineScreenState extends ConsumerState<AddMachineScreen> {
   Future<void> _copy(String text, String what) async {
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('$what copied')));
+      showHxSnack(context, '$what copied');
     }
   }
 

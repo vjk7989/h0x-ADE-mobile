@@ -1116,16 +1116,15 @@ Future<void> reviewHostKey(
     if (s is Ready || s is Failed) changed.complete(null);
   });
   unawaited(session.start());
-  final messenger = ScaffoldMessenger.maybeOf(context);
   try {
     final hk = await changed.future.timeout(
       kProbeTimeout,
       onTimeout: () => null,
     );
     if (hk == null) {
-      messenger?.showSnackBar(
-        SnackBar(content: Text('Could not reach ${m.name} to compare the key.')),
-      );
+      if (context.mounted) {
+        showHxSnack(context, 'Could not reach ${m.name} to compare the key.');
+      }
       return;
     }
     if (!context.mounted) return;

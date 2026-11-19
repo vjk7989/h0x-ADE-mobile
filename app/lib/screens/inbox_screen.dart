@@ -77,7 +77,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
         : await conn.deny(item.session.terminal);
     if (!mounted) return;
     if (r is! Done) {
-      showHxSnack(context, SnackBar(content: Text(_replyText(r))));
+      showHxSnack(context, _replyText(r));
     }
     unawaited(ref.read(inboxProvider).refresh());
   }

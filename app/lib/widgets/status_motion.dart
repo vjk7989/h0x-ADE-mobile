@@ -134,39 +134,45 @@ class _NeedsYouPulseState extends State<NeedsYouPulse>
       child: AnimatedBuilder(
         animation: _c,
         builder: (context, _) {
-          // Static ring when not pulsing.
+          // The ring (1.5 dp) leaves the dot and grows to 2.2 x its radius
+          // while it fades from 45 % to 0. When not pulsing: a static ring.
           final t = _owns ? _c.value : 0.0;
-          final scale = _owns ? 1 + 0.6 * t : 1.3;
-          final alpha = _owns ? 0.5 * (1 - t) : 0.25;
-          return Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              Positioned.fill(
-                child: Transform.scale(
-                  scale: scale,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: widget.color.withValues(alpha: alpha),
-                        width: 1.5,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
-                ),
-              ),
-            ],
+          final grow = _owns ? 1 + 1.2 * t : 1.6;
+          final alpha = _owns ? 0.45 * (1 - t) : 0.3;
+          return CustomPaint(
+            painter: _PulsePainter(widget.color, grow, alpha),
           );
         },
       ),
     );
   }
+}
+
+class _PulsePainter extends CustomPainter {
+  _PulsePainter(this.color, this.grow, this.alpha);
+
+  final Color color;
+  final double grow;
+  final double alpha;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = size.center(Offset.zero);
+    final r = size.width / 2;
+    canvas.drawCircle(
+      center,
+      r * grow,
+      Paint()
+        ..color = color.withValues(alpha: alpha)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5,
+    );
+    canvas.drawCircle(center, r, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_PulsePainter old) =>
+      old.color != color || old.grow != grow || old.alpha != alpha;
 }
 
 const _braille = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
@@ -216,9 +222,20 @@ class _WorkingGlyphState extends State<WorkingGlyph>
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: _c,
-    builder: (context, _) => Text(
-      _braille[(_c.value * _braille.length).floor() % _braille.length],
-      style: (widget.style ?? HxType.mono).copyWith(color: widget.color),
+    // Mono 12 sp (never under 11), centred on the tag text beside it.
+    builder: (context, _) => SizedBox(
+      height: 16,
+      child: Center(
+        child: Text(
+          _braille[(_c.value * _braille.length).floor() % _braille.length],
+          textScaler: TextScaler.noScaling,
+          style: (widget.style ?? HxType.mono).copyWith(
+            color: widget.color,
+            fontSize: 12,
+            height: 1,
+          ),
+        ),
+      ),
     ),
   );
 }
