@@ -114,13 +114,8 @@ void main() {
       await tester.scrollUntilVisible(find.text('Moss'), 300);
       final label = find.bySemanticsLabel('Darkmatter, dark theme, selected');
       expect(label, findsOneWidget);
-      // Bring the row clear of the bottom edge before tapping it.
-      final position = tester
-          .state<ScrollableState>(find.byType(Scrollable).first)
-          .position;
-      position.jumpTo(position.pixels + 80);
-      await tester.pump();
-      await tester.tap(find.bySemanticsLabel('Moss, dark theme'));
+      // Tap through semantics: the row may sit at the edge of the viewport.
+      tester.semantics.tap(find.semantics.byLabel('Moss, dark theme'));
       await tester.pumpAndSettle();
       expect(find.bySemanticsLabel('Moss, dark theme, selected'), findsOneWidget);
       expect(find.bySemanticsLabel('Darkmatter, dark theme'), findsOneWidget);
