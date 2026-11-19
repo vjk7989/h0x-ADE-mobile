@@ -1,4 +1,3 @@
-import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:material_ui/material_ui.dart' hide RefreshIndicator;
 
@@ -49,18 +48,19 @@ class _HxRefreshState extends State<HxRefresh> {
         // not disarm the refresh.
         _armed = false;
       }
-    } else if (n is ScrollEndNotification ||
-        (n is UserScrollNotification && n.direction == ScrollDirection.idle)) {
-      // The finger lifted (the spring may still be running): decide now.
-      final go = _armed;
-      _armed = false;
-      if (go) {
-        _run();
-      } else if (_pull != 0) {
-        setState(() => _pull = 0);
-      }
+    } else if (n is ScrollEndNotification && _pull != 0 && !_armed) {
+      setState(() => _pull = 0);
     }
     return false;
+  }
+
+  /// The finger lifted: a pull past the threshold refreshes (the spring back
+  /// may still be running, so the scroll notifications are too late).
+  void _lift() {
+    if (_armed && !_refreshing) {
+      _armed = false;
+      _run();
+    }
   }
 
   Future<void> _run() async {
@@ -83,7 +83,10 @@ class _HxRefreshState extends State<HxRefresh> {
     final reduced = HxMotion.reduced(context);
     final p = (_pull / kRefreshThreshold).clamp(0.0, 1.0);
     final show = _refreshing || _pull > 0;
-    return NotificationListener<ScrollNotification>(
+    return Listener(
+      onPointerUp: (_) => _lift(),
+      onPointerCancel: (_) => _lift(),
+      child: NotificationListener<ScrollNotification>(
       onNotification: _onScroll,
       child: ScrollConfiguration(
         behavior: ScrollConfiguration.of(context).copyWith(
@@ -129,6 +132,7 @@ class _HxRefreshState extends State<HxRefresh> {
               ),
           ],
         ),
+      ),
       ),
     );
   }
