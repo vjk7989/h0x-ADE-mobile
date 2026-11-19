@@ -255,9 +255,7 @@ class _AddMachineScreenState extends ConsumerState<AddMachineScreen> {
   Future<void> _copy(String text, String what) async {
     await Clipboard.setData(ClipboardData(text: text));
     if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('$what copied')));
+      showHxSnack(context, '$what copied');
     }
   }
 
@@ -269,10 +267,14 @@ class _AddMachineScreenState extends ConsumerState<AddMachineScreen> {
     final form = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_failure != null) ...[
-          HxBanner(title: _failure!.title, message: _failure!.hint),
-          const SizedBox(height: 12),
-        ],
+        HxBannerSlot(
+          child: _failure == null
+              ? null
+              : Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: HxBanner(title: _failure!.title, message: _failure!.hint),
+                ),
+        ),
         _Field(
           label: 'Host, IP or Tailscale name',
           hint: 'devbox.tail1234.ts.net',
@@ -636,16 +638,20 @@ class _KeyCard extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              if (k.addAgain) ...[
-                const HxBanner(
-                  kind: HxBannerKind.info,
-                  title: 'New key',
-                  message:
-                      'This phone made a new key. Add it again on every '
-                      'machine.',
-                ),
-                const SizedBox(height: 8),
-              ],
+              HxBannerSlot(
+                child: !k.addAgain
+                    ? null
+                    : const Padding(
+                        padding: EdgeInsets.only(bottom: 8),
+                        child: HxBanner(
+                          kind: HxBannerKind.info,
+                          title: 'New key',
+                          message:
+                              'This phone made a new key. Add it again on every '
+                              'machine.',
+                        ),
+                      ),
+              ),
               Semantics(
                 label:
                     'This phone\'s public key, ed25519, '

@@ -15,9 +15,16 @@ class HxRowRegistry {
 
   /// The row's rect in the screen, or null when it is not on screen.
   static Rect? rectOf(String id) {
-    final box = _keys[id]?.currentContext?.findRenderObject();
-    if (box is! RenderBox || !box.attached || !box.hasSize) return null;
-    return box.localToGlobal(Offset.zero) & box.size;
+    final ctx = _keys[id]?.currentContext;
+    // A row removed mid-transition is an inactive element: no rect.
+    if (ctx == null || !ctx.mounted) return null;
+    try {
+      final box = ctx.findRenderObject();
+      if (box is! RenderBox || !box.attached || !box.hasSize) return null;
+      return box.localToGlobal(Offset.zero) & box.size;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// What the router gets as `extra` when it opens [id] from its row.
@@ -130,13 +137,18 @@ class HxContainerPage<T> extends CustomTransitionPage<T> {
             child,
           );
         }
-        final t = (reversing
-                ? HxMotion.emphasizedAccel
-                : HxMotion.emphasizedDecel)
-            .transform(animation.value);
+        // The rect grows from the row toward the screen, radius to 0. The
+        // card fill covers the row's content over the first 35 % (the row
+        // fades out), and the page fades in inside the rect from 35 %. Back
+        // runs it the other way: the fill leaves over the last 30 %, so the
+        // row's own content is back and there is never an empty card.
+        final v = animation.value;
+        // A gentler curve than the page's: the rect is seen between the row and
+        // the screen (at 70 ms it is about a fifth of the way).
+        final t = const Cubic(0.4, 0, 0.2, 1).transform(v);
         final rect = Rect.lerp(now ?? origin.rect, Offset.zero & size, t)!;
-        // The page shows through from 30 % of the way.
-        final page = const Interval(0.3, 1).transform(t);
+        final fill = (v / (reversing ? 0.3 : 0.35)).clamp(0.0, 1.0);
+        final page = ((v - 0.35) / 0.65).clamp(0.0, 1.0);
         return Stack(
           children: [
             Positioned.fromRect(
@@ -144,7 +156,7 @@ class HxContainerPage<T> extends CustomTransitionPage<T> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(origin.radius * (1 - t)),
                 child: ColoredBox(
-                  color: origin.color,
+                  color: origin.color.withValues(alpha: fill),
                   child: OverflowBox(
                     alignment: Alignment.topLeft,
                     minWidth: size.width,
@@ -161,4 +173,63 @@ class HxContainerPage<T> extends CustomTransitionPage<T> {
       },
     );
   }
+}
+
+/// Swaps [child] for the next one with a fade-through (200 ms): the old one
+/// is out over the first 35 %, then the new one comes in (scale 0.98 -> 1).
+/// They are never both visible. The swap happens when [id] changes.
+class HxFadeThrough extends StatefulWidget {
+  const HxFadeThrough({super.key, required this.id, required this.child});
+
+  final Object id;
+  final Widget child;
+
+  @override
+  State<HxFadeThrough> createState() => _HxFadeThroughState();
+}
+
+class _HxFadeThroughState extends State<HxFadeThrough>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, value: 1);
+  Widget? _old;
+
+  @override
+  void didUpdateWidget(HxFadeThrough old) {
+    super.didUpdateWidget(old);
+    if (old.id == widget.id) return;
+    _old = old.child;
+    _c.duration = HxMotion.d(context, HxMotion.stateChange, fade: true);
+    _c.forward(from: 0).whenComplete(() {
+      if (mounted) setState(() => _old = null);
+    });
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+    animation: _c,
+    builder: (context, _) {
+      final t = _c.value;
+      final old = _old;
+      if (old != null && t < 0.35) {
+        return Opacity(
+          opacity: 1 - HxMotion.emphasizedAccel.transform(t / 0.35),
+          child: KeyedSubtree(key: const ValueKey('old'), child: old),
+        );
+      }
+      final u = old == null ? 1.0 : HxMotion.emphasizedDecel.transform((t - 0.35) / 0.65);
+      return Opacity(
+        opacity: u,
+        child: Transform.scale(
+          scale: 0.98 + 0.02 * u,
+          child: KeyedSubtree(key: ValueKey(widget.id), child: widget.child),
+        ),
+      );
+    },
+  );
 }

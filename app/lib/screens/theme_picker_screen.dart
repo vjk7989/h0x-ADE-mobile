@@ -8,6 +8,7 @@ import '../theme/themes.dart';
 import '../theme/type.dart';
 import '../widgets/app_shell.dart';
 import '../widgets/hx_icons.dart';
+import '../widgets/theme_crossfade.dart';
 
 /// Every desktop theme, each with a live swatch drawn in its own colours,
 /// the one on screen ticked, plus System / Light / Dark like the desktop.
@@ -57,13 +58,19 @@ class _ThemePickerScreenState extends ConsumerState<ThemePickerScreen> {
         for (final spec in specs)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
-            child: _ThemeRow(
-              spec: spec,
-              selected: spec.id == active.id,
-              previewed: wide && spec.id == previewId,
-              onTap: wide
-                  ? () => setState(() => _preview = spec.id)
-                  : () => controller.select(spec.id, platform: platform),
+            // The new theme is revealed from this row.
+            child: Builder(
+              builder: (rowContext) => _ThemeRow(
+                spec: spec,
+                selected: spec.id == active.id,
+                previewed: wide && spec.id == previewId,
+                onTap: wide
+                    ? () => setState(() => _preview = spec.id)
+                    : () {
+                        ThemeReveal.from(rowContext);
+                        controller.select(spec.id, platform: platform);
+                      },
+              ),
             ),
           ),
       ],
@@ -134,10 +141,15 @@ class _ThemePickerScreenState extends ConsumerState<ThemePickerScreen> {
                   ),
                   VerticalDivider(width: 1, color: hx.hairline),
                   Expanded(
-                    child: ThemePreview(
-                      spec: preview,
-                      inUse: preview.id == active.id,
-                      onUse: () => controller.select(preview.id, platform: platform),
+                    child: Builder(
+                      builder: (useContext) => ThemePreview(
+                        spec: preview,
+                        inUse: preview.id == active.id,
+                        onUse: () {
+                          ThemeReveal.from(useContext);
+                          controller.select(preview.id, platform: platform);
+                        },
+                      ),
                     ),
                   ),
                 ],

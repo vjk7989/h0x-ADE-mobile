@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- The static splash below Android 12: the page colour and the HyperOx mark,
-     centred in a 240 dp box, the same box the Android 12 splash icon uses, so
+     centred in a 288 dp box, the size Android 12 draws a splash icon that has no icon background, so
      the mark sits at the same place on every API level. Keep this file and
      drawable-v21/launch_background.xml identical. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/splash_bg" />
     <item
-        android:width="240dp"
-        android:height="240dp"
+        android:width="288dp"
+        android:height="288dp"
         android:gravity="center"
         android:drawable="@drawable/ic_launcher_foreground" />
 </layer-list>

@@ -166,23 +166,9 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
   final _bottomKey = GlobalKey();
 
   void _snack(String text) {
-    final c = context.hx.colors;
     final lift = (_bottomKey.currentContext?.size?.height ?? 100) + 8;
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: c.foreground,
-          margin: EdgeInsets.fromLTRB(16, 0, 16, lift),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          content: Text(
-            text,
-            style: HxType.body.copyWith(color: c.screen),
-          ),
-        ),
-      );
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    showHxSnack(context, text, bottom: lift);
   }
 
   Future<void> _send() async {
@@ -293,27 +279,33 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
             ),
             // History replays under a thin bar, which fades out when done.
             _ReplayBar(progress: a.replayProgress, active: a.replaying),
-            if (phase == AgentPhase.reconnecting)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                child: HxBanner(
-                  kind: HxBannerKind.info,
-                  title: 'Reconnecting to ${a.conn.machine.name}',
-                  message: a.error ?? 'Output so far stays here.',
-                  trailing: a.retryIn == null
-                      ? null
-                      : _RetryRing(total: a.retryIn!, epoch: a.retryEpoch),
-                ),
-              ),
-            if (_locked != null)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-                child: HxBanner(
-                  kind: HxBannerKind.info,
-                  title: 'Locked on the computer',
-                  message: _locked!,
-                ),
-              ),
+            HxBannerSlot(
+              child: phase == AgentPhase.reconnecting
+                  ? Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                      child: HxBanner(
+                        kind: HxBannerKind.info,
+                        title: 'Reconnecting to ${a.conn.machine.name}',
+                        message: a.error ?? 'Output so far stays here.',
+                        trailing: a.retryIn == null
+                            ? null
+                            : _RetryRing(total: a.retryIn!, epoch: a.retryEpoch),
+                      ),
+                    )
+                  : null,
+            ),
+            HxBannerSlot(
+              child: _locked == null
+                  ? null
+                  : Padding(
+                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                      child: HxBanner(
+                        kind: HxBannerKind.info,
+                        title: 'Locked on the computer',
+                        message: _locked!,
+                      ),
+                    ),
+            ),
             Expanded(child: _terminalArea(context, a)),
             if (blocked && phase == AgentPhase.ready)
               _PromptCard(
@@ -1205,7 +1197,7 @@ class _RetryRingState extends State<_RetryRing> with SingleTickerProviderStateMi
   Widget build(BuildContext context) {
     final c = context.hx.colors;
     return Semantics(
-      label: 'Retrying in ${widget.total.inSeconds} seconds',
+      label: 'Retrying in ${widget.total.inSeconds} ${widget.total.inSeconds == 1 ? 'second' : 'seconds'}',
       excludeSemantics: true,
       child: SizedBox(
         width: 28,

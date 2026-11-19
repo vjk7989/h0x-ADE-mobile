@@ -19,6 +19,8 @@ import '../widgets/hx_icons.dart';
 import '../widgets/hx_refresh.dart';
 import '../widgets/status_motion.dart';
 
+export '../widgets/hx.dart' show accentOnInverse;
+
 /// The desktop's to-do lists from a chosen computer (design: To-do). The
 /// files are the desktop's own Markdown; every change re-reads and writes.
 class TodoScreen extends ConsumerStatefulWidget {
@@ -56,29 +58,6 @@ class _Lifted extends InheritedWidget {
 
 /// Tells an inline edit to give up (the system Back button while editing).
 final _cancelEdit = ValueNotifier<int>(0);
-
-double _contrast(Color a, Color b) {
-  final la = a.computeLuminance();
-  final lb = b.computeLuminance();
-  final hi = la > lb ? la : lb;
-  final lo = la > lb ? lb : la;
-  return (hi + 0.05) / (lo + 0.05);
-}
-
-/// The accent, moved toward white or black until it reads at 4.5:1 on
-/// [fill] (the inverse snackbar: `foreground` is the fill, so on a light
-/// theme it is dark and the accent is lightened, as the board's #8ab4ff).
-Color accentOnInverse(Color accent, Color fill) {
-  if (_contrast(accent, fill) >= 4.5) return accent;
-  final toward = fill.computeLuminance() < 0.4
-      ? const Color(0xFFFFFFFF)
-      : const Color(0xFF000000);
-  for (var i = 1; i <= 20; i++) {
-    final c = Color.lerp(accent, toward, i / 20)!;
-    if (_contrast(c, fill) >= 4.5) return c;
-  }
-  return toward;
-}
 
 class _TodoScreenState extends ConsumerState<TodoScreen> {
   String? _machineId;
@@ -136,35 +115,15 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
 
   void _go(NavDest d) => (widget.onNavigate ?? (x) => context.go(x.path))(d);
 
-  void _say(String text, {SnackBarAction? action, Duration? duration}) {
-    final m = ScaffoldMessenger.of(context);
-    m.hideCurrentSnackBar();
-    final c = context.hx.colors;
-    // Floating and inverse: `foreground` fill, `screen` text, 16 dp side
-    // margins, radius 12, 56 dp tall, 12 dp above the bottom.
-    m.showSnackBar(SnackBar(
-      behavior: SnackBarBehavior.floating,
-      backgroundColor: c.foreground,
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 56),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Text(text, style: HxType.body.copyWith(color: c.screen, fontSize: 13.5)),
-        ),
-      ),
-      action: action == null
-          ? null
-          : SnackBarAction(
-              label: action.label,
-              textColor: accentOnInverse(c.accent, c.foreground),
-              onPressed: action.onPressed,
-            ),
-      persist: false,
+  void _say(String text, {String? actionLabel, VoidCallback? onAction, Duration? duration}) {
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    showHxSnack(
+      context,
+      text,
+      actionLabel: actionLabel,
+      onAction: onAction,
       duration: duration ?? const Duration(seconds: 4),
-    ));
+    );
   }
 
   /// Runs a change; tells the person when the computer changed first.
@@ -195,7 +154,8 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
     _say(
       '${gone.isStep ? 'Step' : 'Task'} deleted · ${gone.title}',
       duration: widget.undoFor,
-      action: SnackBarAction(label: 'Undo', onPressed: () => _run(c, () => c.undo(gone))),
+      actionLabel: 'Undo',
+      onAction: () => _run(c, () => c.undo(gone)),
     );
   }
 
@@ -485,20 +445,32 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
     );
 
     final banners = <Widget>[
-      if (s.offline)
-        _Banner(
-          title: '${conn.machine.name} is offline',
-          text: 'Read-only copy from the last sync. Ticks and edits wait until it is back.',
-          kind: HxBannerKind.offline,
-        ),
-      if (doc != null && doc.readOnly)
-        _Banner(
-          title: "This list can't be read",
-          text: '${doc.problem} It is left untouched on ${conn.machine.name} and shown read-only.',
-          kind: HxBannerKind.error,
-        ),
-      if (s.error != null)
-        _Banner(title: "Couldn't read the lists", text: s.error!, kind: HxBannerKind.error),
+      HxBannerSlot(
+        key: const ValueKey('banner-offline'),
+        child: !s.offline
+            ? null
+            : _Banner(
+                title: '${conn.machine.name} is offline',
+                text: 'Read-only copy from the last sync. Ticks and edits wait until it is back.',
+                kind: HxBannerKind.offline,
+              ),
+      ),
+      HxBannerSlot(
+        key: const ValueKey('banner-readonly'),
+        child: !(doc != null && doc.readOnly)
+            ? null
+            : _Banner(
+                title: "This list can't be read",
+                text: '${doc.problem} It is left untouched on ${conn.machine.name} and shown read-only.',
+                kind: HxBannerKind.error,
+              ),
+      ),
+      HxBannerSlot(
+        key: const ValueKey('banner-error'),
+        child: s.error == null
+            ? null
+            : _Banner(title: "Couldn't read the lists", text: s.error!, kind: HxBannerKind.error),
+      ),
     ];
 
     Widget body;
