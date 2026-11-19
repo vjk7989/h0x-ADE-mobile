@@ -1,5 +1,7 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:material_ui/material_ui.dart' hide Icon;
 
+import 'hx_icon_compat.dart';
+import 'hx_icons.dart';
 import '../theme/themes.dart';
 import '../theme/type.dart';
 
@@ -108,7 +110,7 @@ class HxCard extends StatelessWidget {
   }
 }
 
-enum HxBannerKind { error, info }
+enum HxBannerKind { error, info, offline, warn }
 
 /// A strip announced to the screen reader as it appears. Text stays
 /// `foreground`; the state colour is on the icon and the edge (tokens rule 3).
@@ -127,7 +129,17 @@ class HxBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.hx.colors;
-    final tone = kind == HxBannerKind.error ? c.blocked : c.working;
+    final tone = switch (kind) {
+      HxBannerKind.error => c.blocked,
+      HxBannerKind.info || HxBannerKind.warn => c.working,
+      HxBannerKind.offline => c.muted,
+    };
+    final icon = switch (kind) {
+      HxBannerKind.error => 'alert',
+      HxBannerKind.info => 'info',
+      HxBannerKind.offline => 'wifi-off',
+      HxBannerKind.warn => 'triangle',
+    };
     return Semantics(
       liveRegion: true,
       container: true,
@@ -143,13 +155,7 @@ class HxBanner extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(
-              kind == HxBannerKind.error
-                  ? Icons.error_outline
-                  : Icons.info_outline,
-              color: tone,
-              size: 20,
-            ),
+            HxIcon(icon, color: tone, size: 20),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -191,55 +197,77 @@ class HxTag extends StatelessWidget {
   }
 }
 
-/// The dot-matrix H mark, drawn as a grid of dots (decorative).
+/// The dot-matrix HyperOx mark: the shipped logo sampled on a 21 x 25 grid
+/// (design/tokens.md section 8). [size] is the width; the height is
+/// width x 25/21. One colour: `accent` on dark themes, `foreground` on light.
 class HxMark extends StatelessWidget {
-  const HxMark({super.key, this.size = 72});
+  const HxMark({super.key, this.size = 74});
 
   final double size;
 
   static const _rows = [
-    '1000001',
-    '1000001',
-    '1000001',
-    '1111111',
-    '1000001',
-    '1000001',
-    '1000001',
+    '000001110000000000011',
+    '000011110000000001111',
+    '001111010000000011101',
+    '011100010000001110001',
+    '111000110000011100011',
+    '110011110000011000111',
+    '110111010000011001101',
+    '110110010000011001001',
+    '110110010000011001001',
+    '110110010000011001001',
+    '110110011111111001001',
+    '110110011000111001001',
+    '110110011000111001001',
+    '110110011000111001001',
+    '110110011111111001001',
+    '110110011111111001001',
+    '110110010000011001001',
+    '110110010000011001001',
+    '110110010000011001001',
+    '110011110000011001111',
+    '110001110000011000111',
+    '110001110000011000111',
+    '110111100000011011110',
+    '111110000000011111000',
+    '111100000000011110000',
   ];
 
   @override
   Widget build(BuildContext context) {
     final c = context.hx.colors;
+    final dark = Theme.of(context).brightness == Brightness.dark;
     return ExcludeSemantics(
       child: CustomPaint(
-        size: Size(size, size),
-        painter: _MarkPainter(c.foreground, c.accent),
+        size: Size(size, size * 25 / 21),
+        painter: _MarkPainter(dark ? c.accent : c.foreground),
       ),
     );
   }
 }
 
 class _MarkPainter extends CustomPainter {
-  _MarkPainter(this.dot, this.accent);
+  _MarkPainter(this.tint);
 
-  final Color dot;
-  final Color accent;
+  final Color tint;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final step = size.width / 7;
-    for (var y = 0; y < 7; y++) {
-      for (var x = 0; x < 7; x++) {
-        if (HxMark._rows[y][x] != '1') continue;
+    final step = size.width / 21;
+    final paint = Paint()..color = tint;
+    for (var y = 0; y < HxMark._rows.length; y++) {
+      final row = HxMark._rows[y];
+      for (var x = 0; x < 21; x++) {
+        if (row[x] != '1') continue;
         canvas.drawCircle(
           Offset(step * (x + 0.5), step * (y + 0.5)),
-          step * 0.3,
-          Paint()..color = y == 3 ? accent : dot,
+          step / 3,
+          paint,
         );
       }
     }
   }
 
   @override
-  bool shouldRepaint(_MarkPainter old) => old.dot != dot || old.accent != accent;
+  bool shouldRepaint(_MarkPainter old) => old.tint != tint;
 }

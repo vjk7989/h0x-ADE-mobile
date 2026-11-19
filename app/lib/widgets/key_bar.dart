@@ -1,5 +1,6 @@
-import 'package:material_ui/material_ui.dart' hide Key;
+import 'package:material_ui/material_ui.dart' hide Icon, Key;
 
+import 'hx_icon_compat.dart';
 import '../conn/machine_connection.dart';
 import '../state/key_input.dart';
 import '../theme/themes.dart';

@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hyperox/screens/theme_picker_screen.dart';
 import 'package:hyperox/theme/theme_controller.dart';
+import 'package:hyperox/widgets/hx_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -95,7 +96,10 @@ void main() {
         find.bySemanticsLabel('Paper, light theme, selected'),
         findsOneWidget,
       );
-      expect(find.byIcon(Icons.check), findsOneWidget);
+      expect(
+        find.byWidgetPredicate((w) => w is HxIcon && w.name == 'check'),
+        findsOneWidget,
+      );
       handle.dispose();
     });
 

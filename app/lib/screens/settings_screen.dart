@@ -1,7 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:material_ui/material_ui.dart' hide Icon;
 
+import '../widgets/hx_icon_compat.dart';
 import '../auth/app_lock.dart';
 import '../auth/auth_service.dart';
 import '../config.dart';
