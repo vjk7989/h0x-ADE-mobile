@@ -449,7 +449,9 @@ void main() {
     final g = await t.startGesture(t.getCenter(find.text('Book a design review')));
     await t.pump(const Duration(milliseconds: 600));
     await g.moveBy(const Offset(0, -140));
+    // Let the neighbours settle: the hole, and the line in it, are at the target.
     await t.pump(const Duration(milliseconds: 100));
+    await t.pump(const Duration(milliseconds: 400));
     await expectGolden(find.byType(MaterialApp), 'todo_reorder_light');
     await g.up();
     await t.pumpAndSettle();
