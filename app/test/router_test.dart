@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hyperox/main.dart';
+import 'package:hyperox/app.dart';
 import 'package:hyperox/router.dart';
 import 'package:hyperox/session_state.dart';
 import 'package:hyperox/theme/theme_controller.dart';

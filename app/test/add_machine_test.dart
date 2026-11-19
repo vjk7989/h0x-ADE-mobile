@@ -72,10 +72,18 @@ Future<void> _fill(
   await tester.enterText(fields.at(2), port);
 }
 
+/// Frames by hand: a spinner animates while connecting, so pumpAndSettle
+/// would never settle.
+Future<void> _frames(WidgetTester tester) async {
+  for (var i = 0; i < 20; i++) {
+    await tester.pump(const Duration(milliseconds: 50));
+  }
+}
+
 Future<void> _connect(WidgetTester tester) async {
   await tester.ensureVisible(find.text('Connect'));
   await tester.tap(find.text('Connect'));
-  await tester.pumpAndSettle();
+  await _frames(tester);
 }
 
 void main() {
@@ -182,14 +190,14 @@ void main() {
       expect(find.text('Trust this machine?'), findsOneWidget);
       expect(find.textContaining('4mQe0rT7xLq9ZkP2'), findsOneWidget);
       await tester.tap(find.text('Cancel'));
-      await tester.pumpAndSettle();
+      await _frames(tester);
       expect(c.read(sshMachinesProvider), isEmpty);
       expect(find.text('Host key not trusted'), findsOneWidget);
       expect(gw.sessions.single.decisions, ['reject']);
 
       await _connect(tester);
       await tester.tap(find.text('Trust and connect'));
-      await tester.pumpAndSettle();
+      await _frames(tester);
       expect(gw.sessions.last.decisions, ['accept']);
       expect(c.read(sshMachinesProvider), hasLength(1));
     });

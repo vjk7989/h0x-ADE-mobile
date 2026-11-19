@@ -171,44 +171,43 @@ class _AddMachineScreenState extends ConsumerState<AddMachineScreen> {
         session.rejectHostKey();
       }
     });
+    ConnState end;
     try {
-      final end = await session.start();
-      // Cancel clears _session; a cancelled attempt saves nothing.
-      if (_session != session || !mounted) return;
-      if (end is Ready) {
-        final added = await ref
-            .read(sshMachinesProvider.notifier)
-            .add(machine);
-        if (!mounted) return;
-        if (added) {
-          context.go('/machines');
-        } else {
-          setState(
-            () => _failure = (
-              title: 'Already saved',
-              hint: '$user@$host:$port is already on this phone.',
-            ),
-          );
-        }
-      } else if (end is Failed) {
+      end = await session.start();
+    } catch (e) {
+      end = Failed('$e');
+    }
+    // The attempt is over: stop listening and release the connection.
+    unawaited(sub.cancel());
+    unawaited(session.close());
+    // Cancel clears _session; a cancelled attempt saves nothing.
+    if (_session != session || !mounted) return;
+    setState(() {
+      _connecting = false;
+      _session = null;
+    });
+    if (end is Ready) {
+      final added = await ref.read(sshMachinesProvider.notifier).add(machine);
+      if (!mounted) return;
+      if (added) {
+        context.go('/machines');
+      } else {
         setState(
-          () => _failure = explainFailure(
-            end.reason,
-            host: host,
-            port: port,
-            tailscale: _tailscale,
+          () => _failure = (
+            title: 'Already saved',
+            hint: '$user@$host:$port is already on this phone.',
           ),
         );
       }
-    } finally {
-      await sub.cancel();
-      await session.close();
-      if (mounted && _session == session) {
-        setState(() {
-          _connecting = false;
-          _session = null;
-        });
-      }
+    } else if (end is Failed) {
+      setState(
+        () => _failure = explainFailure(
+          end.reason,
+          host: host,
+          port: port,
+          tailscale: _tailscale,
+        ),
+      );
     }
   }
 
