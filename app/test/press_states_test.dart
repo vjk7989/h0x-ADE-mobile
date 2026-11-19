@@ -69,6 +69,7 @@ Future<List<TestGesture>> _holdPressed(WidgetTester t) async {
   }
   // 300 ms in: the 90 ms press scale has landed and the 200 ms state layer
   // fade is complete, so the pressed look is at full strength.
+  await t.pump(); // the animations start on their first frame
   await t.pump(const Duration(milliseconds: 300));
   return gestures;
 }
@@ -209,6 +210,7 @@ void main() {
         brightness: Brightness.dark,
       );
       final g = await t.startGesture(t.getCenter(find.text('Esc').at(1)));
+      await t.pump(); // the animations start on their first frame
       await t.pump(const Duration(milliseconds: 300));
       await expectGolden(find.byType(MaterialApp), 'keybar_states_dark');
       await g.cancel();
