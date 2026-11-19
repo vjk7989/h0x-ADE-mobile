@@ -54,7 +54,7 @@ void main() {
     await t.pump();
     await _expectImage(
       t,
-      await strip(t, times: const [0, 80, 160, 240, 400, 800, 1200], scale: 0.3),
+      await strip(t, times: const [0, 80, 160, 240, 400, 800, 1200], scale: 0.6),
       'status_strip_light',
     );
   });
