@@ -26,6 +26,7 @@ Future<void> pumpGolden(
   Brightness brightness = Brightness.light,
   double textScale = 1.0,
   String? themeId,
+  Map<String, Object> stored = const {},
   List<Override> overrides = const [],
 }) async {
   tester.view.physicalSize = frame.size;
@@ -33,7 +34,7 @@ Future<void> pumpGolden(
   addTearDown(tester.view.reset);
   tester.platformDispatcher.platformBrightnessTestValue = brightness;
   addTearDown(tester.platformDispatcher.clearPlatformBrightnessTestValue);
-  SharedPreferences.setMockInitialValues({});
+  SharedPreferences.setMockInitialValues(stored);
   final prefs = await SharedPreferences.getInstance();
   final spec = themeById(
     themeId ??
