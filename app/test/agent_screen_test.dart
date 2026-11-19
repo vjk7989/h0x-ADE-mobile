@@ -107,7 +107,7 @@ class _Flaky extends FakeConnection {
 
 /// Answers every key with a refusal the test chooses, in order.
 class _Refusing extends FakeConnection {
-  _Refusing(this.replies);
+  _Refusing(List<Reply> replies) : replies = [...replies];
 
   final List<Reply> replies;
 

@@ -766,7 +766,7 @@ class _PaneCard extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final card = Container(
       constraints: const BoxConstraints(minHeight: 72),
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         // A needs-you pane has a 1.5 dp `working` edge; the others a hairline
         // on `well` (dark) or #f6f6f4 (light).
@@ -813,7 +813,7 @@ class _PaneCard extends StatelessWidget {
             const SizedBox(height: 6),
           ],
           Padding(
-            padding: const EdgeInsets.only(top: 4),
+            padding: const EdgeInsets.only(top: 2),
             child: HxTag(word, color: tone),
           ),
         ],
