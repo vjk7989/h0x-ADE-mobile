@@ -33,17 +33,20 @@ double contrastRatio(Color a, Color b) {
 Color? backgroundBehind(Element element) {
   final layers = <Color>[];
   var exempt = false;
+  var opaque = false;
   element.visitAncestorElements((e) {
     final w = e.widget;
     if (w is Opacity && w.opacity < 1) {
       exempt = true;
       return false;
     }
-    // A disabled control (semantics enabled: false) is WCAG-exempt.
+    // A disabled control (semantics enabled: false) is WCAG-exempt. Keep
+    // walking past the first opaque fill to find it.
     if (w is Semantics && w.properties.enabled == false) {
       exempt = true;
       return false;
     }
+    if (opaque) return true;
     Color? fill;
     if (w is DecoratedBox) {
       final d = w.decoration;
@@ -55,7 +58,7 @@ Color? backgroundBehind(Element element) {
     }
     if (fill != null && fill.a > 0) {
       layers.add(fill);
-      if (fill.a >= 1) return false;
+      if (fill.a >= 1) opaque = true;
     }
     return true;
   });

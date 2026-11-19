@@ -126,6 +126,24 @@ void main() {
       a.dispose();
     });
 
+    test('a drop and a return re-attach and replay', () async {
+      final fake = _Flaky();
+      final a = AgentController(fake, 't1');
+      await a.start();
+      fake.emitView('t1', utf8.encode('one'));
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(a.phase, AgentPhase.ready, reason: 'first attach');
+      fake.drop.add(const Failed('lost'));
+      expect(a.phase, AgentPhase.reconnecting, reason: 'after Failed');
+      fake.drop.add(const Ready());
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(a.phase, AgentPhase.attaching, reason: 'after Ready');
+      fake.emitView('t1', utf8.encode('two'));
+      await Future<void>.delayed(const Duration(milliseconds: 30));
+      expect(a.phase, AgentPhase.ready, reason: 'after replay');
+      a.dispose();
+    });
+
     test('messageTooLong counts bytes, not characters', () {
       expect(messageTooLong('a' * kMaxMessageBytes), isFalse);
       expect(messageTooLong('a' * (kMaxMessageBytes + 1)), isTrue);
