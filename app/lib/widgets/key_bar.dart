@@ -189,12 +189,19 @@ class KeyBar extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                Text(
-                  k.label,
-                  style: HxType.mono.copyWith(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: fg,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      k.label,
+                      maxLines: 1,
+                      style: HxType.mono.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: fg,
+                      ),
+                    ),
                   ),
                 ),
                 if (locked)

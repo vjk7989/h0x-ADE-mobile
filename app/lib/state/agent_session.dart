@@ -27,7 +27,7 @@ bool messageTooLong(String text) => utf8.encode(text).length > kMaxMessageBytes;
 /// One open terminal on one machine: the xterm [Terminal] fed from
 /// `view()`, the session facts for the header and prompt card, and the
 /// calls the screen makes. It never resizes the computer's terminal: the
-/// terminal follows the size the computer reports.
+/// screen lays the local terminal out at the width the computer reports.
 class AgentController extends ChangeNotifier {
   AgentController(
     this.conn,
@@ -43,9 +43,6 @@ class AgentController extends ChangeNotifier {
 
   final Terminal terminal = Terminal(maxLines: 5000);
   final TerminalController selection = TerminalController();
-
-  /// DEBUG trace (temporary).
-  final List<String> trace = [];
 
   AgentPhase phase = AgentPhase.attaching;
   Session? session;
@@ -78,7 +75,6 @@ class AgentController extends ChangeNotifier {
   }
 
   Future<void> _attach() async {
-    trace.add('attach');
     phase = AgentPhase.attaching;
     error = null;
     _notify();
@@ -89,11 +85,11 @@ class AgentController extends ChangeNotifier {
         return;
       }
       _view = v;
+      // The screen sizes the local terminal to the computer's width; the
+      // computer's own terminal is never resized from here.
       size = v.initial;
-      terminal.resize(v.initial.cols, v.initial.rows);
       _sizesSub = v.sizes.listen((s) {
         size = s;
-        terminal.resize(s.cols, s.rows);
         _notify();
       });
       _bytesSub = v.bytes.listen(_onBytes, onDone: _onViewDone);
@@ -140,7 +136,6 @@ class AgentController extends ChangeNotifier {
   }
 
   void _onViewDone() {
-    trace.add('viewDone phase=$phase');
     if (_disposed) return;
     if (phase != AgentPhase.finished) {
       phase = AgentPhase.reconnecting;
@@ -149,7 +144,6 @@ class AgentController extends ChangeNotifier {
   }
 
   void _onState(ConnState s) {
-    trace.add('state ${s.runtimeType} phase=$phase');
     if (_disposed) return;
     if (s is Ready) {
       // Back after a drop: replay from the top.

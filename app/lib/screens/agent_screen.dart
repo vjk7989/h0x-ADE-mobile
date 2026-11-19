@@ -263,7 +263,7 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
                 child: HxBanner(
                   kind: HxBannerKind.info,
                   title: 'Reconnecting to ${a.conn.machine.name}',
-                  message: a.trace.join(' | '), // DEBUG temporary
+                  message: a.error ?? 'Output so far stays here.',
                 ),
               ),
             if (_locked != null)
@@ -320,31 +320,35 @@ class _AgentScreenState extends ConsumerState<AgentScreen> {
     final cols = a.size?.cols ?? 80;
     return LayoutBuilder(
       builder: (context, box) {
-        // The terminal keeps the computer's width; if the phone is
-        // narrower, it scrolls sideways instead of resizing the PTY.
+        // The terminal is laid out at the computer's width (so its output
+        // lines up as it was drawn); if the phone is narrower it scrolls
+        // sideways. The computer's terminal is never resized from here.
         final cell = _fontSize * 0.6;
-        final need = cols * cell + 20;
-        Widget view = TerminalView(
-          a.terminal,
-          controller: a.selection,
-          theme: theme,
-          textStyle: TerminalStyle(
-            fontSize: _fontSize,
-            height: 16 / 12,
-            fontFamily: 'JetBrainsMono',
+        final need = cols * cell + 21;
+        Widget view = SizedBox(
+          width: need,
+          height: box.maxHeight,
+          child: TerminalView(
+            a.terminal,
+            controller: a.selection,
+            theme: theme,
+            textStyle: TerminalStyle(
+              fontSize: _fontSize,
+              height: 16 / 12,
+              fontFamily: 'JetBrainsMono',
+            ),
+            textScaler: TextScaler.noScaling,
+            padding: const EdgeInsets.all(10),
+            autofocus: false,
+            readOnly: !_ready,
           ),
-          textScaler: TextScaler.noScaling,
-          padding: const EdgeInsets.all(10),
-          autoResize: false,
-          autofocus: false,
-          readOnly: !_ready,
         );
-        if (need > box.maxWidth) {
-          view = SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SizedBox(width: need, height: box.maxHeight, child: view),
-          );
-        }
+        view = need > box.maxWidth
+            ? SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: view,
+              )
+            : Align(alignment: Alignment.topLeft, child: view);
         return Stack(
           children: [
             Positioned.fill(
