@@ -210,7 +210,10 @@ void main() {
         brightness: Brightness.dark,
       );
       final g = await t.startGesture(t.getCenter(find.text('Esc').at(1)));
-      await t.pump(); // the animations start on their first frame
+      // In a scrollable the tap-down waits 100 ms (kPressTimeout); then the
+      // animations start on the next frame.
+      await t.pump(const Duration(milliseconds: 150));
+      await t.pump();
       await t.pump(const Duration(milliseconds: 300));
       Color? cap(int i) => (find
               .ancestor(of: find.text('Esc').at(i), matching: find.byType(AnimatedContainer))
