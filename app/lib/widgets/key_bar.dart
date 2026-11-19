@@ -253,7 +253,7 @@ class _KeyCapState extends State<_KeyCap> {
     final c = context.hx.colors;
     final reduced = HxMotion.reduced(context);
     final fill = _down
-        ? c.hover
+        ? Color.alphaBlend(c.hover, c.card)
         : widget.locked
         ? c.accent
         : widget.once
