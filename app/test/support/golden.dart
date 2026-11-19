@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hyperox/router.dart';
 import 'package:hyperox/theme/theme_controller.dart';
+import 'package:hyperox/widgets/code_rain.dart';
 import 'package:hyperox/theme/themes.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -60,7 +61,11 @@ Future<void> pumpGolden(
   );
   await tester.pumpWidget(
     ProviderScope(
-      overrides: [sharedPrefsProvider.overrideWithValue(prefs), ...overrides],
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        codeRainAnimateProvider.overrideWithValue(false),
+        ...overrides,
+      ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: themeData(spec),
@@ -114,7 +119,11 @@ Future<void> pumpShellGolden(
             : kDefaultDarkTheme),
   );
   final container = ProviderContainer(
-    overrides: [sharedPrefsProvider.overrideWithValue(prefs), ...overrides],
+    overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        codeRainAnimateProvider.overrideWithValue(false),
+        ...overrides,
+      ],
   );
   addTearDown(container.dispose);
   final GoRouter router = container.read(routerProvider);

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'config.dart';
 import 'screens/add_machine_screen.dart';
 import 'screens/agent_screen.dart';
 import 'screens/inbox_screen.dart';
@@ -16,16 +17,25 @@ import 'widgets/nav_shell.dart';
 
 /// Where a user goes, given who they are. Returns null to stay.
 ///
-/// - not signed in and no SSH machine: the sign-in screen (the only places
-///   open to them are sign-in, Add machine (the "continue without an
-///   account" path) and the theme picker);
-/// - an account or at least one SSH machine: the Inbox.
+/// - SSH-only build (`accountMode` off, tokens section 15): there is no
+///   sign-in screen. The first run goes straight to Machines (empty, with
+///   Add machine); a user with SSH machines goes to the Inbox; `/sign-in`
+///   leads to Machines.
+/// - account mode: not signed in and no SSH machine goes to sign-in (only
+///   sign-in, Add machine and the theme picker are open to them); an account
+///   or at least one SSH machine goes to the Inbox.
 String? redirectFor({
   required String location,
   required bool signedIn,
   required int sshMachines,
+  bool accountMode = kAccountMode,
 }) {
   final known = signedIn || sshMachines > 0;
+  if (!accountMode) {
+    if (location == '/') return known ? '/inbox' : '/machines';
+    if (location == '/sign-in') return known ? '/inbox' : '/machines';
+    return null;
+  }
   if (location == '/') return known ? '/inbox' : '/sign-in';
   if (known) return location == '/sign-in' ? '/inbox' : null;
   const open = {'/sign-in', '/machines/add', '/settings/theme'};

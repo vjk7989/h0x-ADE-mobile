@@ -15,6 +15,8 @@ class HxButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.icon,
+    this.lucide,
+    this.leading,
     this.kind = HxButtonKind.secondary,
     this.semanticsLabel,
     this.minHeight = 52,
@@ -23,6 +25,12 @@ class HxButton extends StatelessWidget {
   final String label;
   final VoidCallback? onPressed;
   final IconData? icon;
+
+  /// A Lucide icon by name (see hx_icons.dart); wins over [icon].
+  final String? lucide;
+
+  /// A custom leading widget (a brand mark); wins over both.
+  final Widget? leading;
   final HxButtonKind kind;
   final String? semanticsLabel;
   final double minHeight;
@@ -61,8 +69,11 @@ class HxButton extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    if (icon != null) ...[
-                      Icon(icon, size: 20, color: fg),
+                    if (leading != null || lucide != null || icon != null) ...[
+                      leading ??
+                          (lucide != null
+                              ? HxIcon(lucide!, size: 20, color: fg)
+                              : Icon(icon, size: 20, color: fg)),
                       const SizedBox(width: 10),
                     ],
                     Flexible(

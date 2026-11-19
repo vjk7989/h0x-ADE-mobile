@@ -11,6 +11,7 @@ import 'package:hyperox/screens/unlock_screen.dart';
 import 'package:hyperox/session_state.dart';
 import 'package:hyperox/theme/theme_controller.dart';
 import 'package:hyperox/theme/themes.dart';
+import 'package:hyperox/widgets/code_rain.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -57,7 +58,11 @@ Future<ProviderContainer> _container({
   SharedPreferences.setMockInitialValues(stored);
   final prefs = await SharedPreferences.getInstance();
   final c = ProviderContainer(
-    overrides: [sharedPrefsProvider.overrideWithValue(prefs), ...overrides],
+    overrides: [
+      sharedPrefsProvider.overrideWithValue(prefs),
+      codeRainAnimateProvider.overrideWithValue(false),
+      ...overrides,
+    ],
   );
   addTearDown(c.dispose);
   return c;

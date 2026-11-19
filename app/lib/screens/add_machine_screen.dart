@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart' hide Icon;
 import 'package:share_plus/share_plus.dart';
 
+import '../config.dart';
 import '../widgets/hx_icon_compat.dart';
 import '../conn/machine_connection.dart';
 import '../data/ssh_gateway.dart';
@@ -278,7 +279,8 @@ class _AddMachineScreenState extends ConsumerState<AddMachineScreen> {
                       onPressed: () => context.canPop()
                           ? context.pop()
                           : context.go(
-                              ref.read(sshMachinesProvider).isEmpty
+                              ref.read(sshMachinesProvider).isEmpty &&
+                                      kAccountMode
                                   ? '/sign-in'
                                   : '/machines',
                             ),
