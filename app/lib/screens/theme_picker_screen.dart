@@ -6,15 +6,25 @@ import '../widgets/hx_icon_compat.dart';
 import '../theme/theme_controller.dart';
 import '../theme/themes.dart';
 import '../theme/type.dart';
+import '../widgets/app_shell.dart';
 import '../widgets/hx_icons.dart';
 
 /// Every desktop theme, each with a live swatch drawn in its own colours,
 /// the one on screen ticked, plus System / Light / Dark like the desktop.
-class ThemePickerScreen extends ConsumerWidget {
+class ThemePickerScreen extends ConsumerStatefulWidget {
   const ThemePickerScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ThemePickerScreen> createState() => _ThemePickerScreenState();
+}
+
+class _ThemePickerScreenState extends ConsumerState<ThemePickerScreen> {
+  /// Wide layout: the theme shown in the preview pane (tapping a row picks
+  /// it; "Use <theme>" applies it). Null: the one in use.
+  String? _preview;
+
+  @override
+  Widget build(BuildContext context) {
     final hx = context.hx.colors;
     final settings = ref.watch(themeControllerProvider);
     final platform = MediaQuery.platformBrightnessOf(context);
@@ -24,6 +34,8 @@ class ThemePickerScreen extends ConsumerWidget {
     final light = kThemeSpecs.where((t) => t.isLight).toList();
 
     final system = settings.mode == HxThemeMode.system;
+    final wide = MediaQuery.sizeOf(context).width >= kRailBreakpoint;
+    final previewId = _preview ?? active.id;
 
     Widget section(String title, List<ThemeSpec> specs, {String? hint}) => Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -48,16 +60,16 @@ class ThemePickerScreen extends ConsumerWidget {
             child: _ThemeRow(
               spec: spec,
               selected: spec.id == active.id,
-              onTap: () => controller.select(spec.id, platform: platform),
+              previewed: wide && spec.id == previewId,
+              onTap: wide
+                  ? () => setState(() => _preview = spec.id)
+                  : () => controller.select(spec.id, platform: platform),
             ),
           ),
       ],
     );
 
-    return Scaffold(
-      backgroundColor: hx.screen,
-      body: SafeArea(
-        child: Column(
+    final listPane = Column(
           children: [
             ConstrainedBox(
               constraints: const BoxConstraints(minHeight: 64),
@@ -108,7 +120,29 @@ class ThemePickerScreen extends ConsumerWidget {
               ),
             ),
           ],
-        ),
+        );
+    final preview = themeById(previewId);
+    return Scaffold(
+      backgroundColor: hx.screen,
+      body: SafeArea(
+        child: wide
+            ? Row(
+                children: [
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 380),
+                    child: listPane,
+                  ),
+                  VerticalDivider(width: 1, color: hx.hairline),
+                  Expanded(
+                    child: ThemePreview(
+                      spec: preview,
+                      inUse: preview.id == active.id,
+                      onUse: () => controller.select(preview.id, platform: platform),
+                    ),
+                  ),
+                ],
+              )
+            : listPane,
       ),
     );
   }
@@ -176,10 +210,12 @@ class _ThemeRow extends StatelessWidget {
     required this.spec,
     required this.selected,
     required this.onTap,
+    this.previewed = false,
   });
 
   final ThemeSpec spec;
   final bool selected;
+  final bool previewed;
   final VoidCallback onTap;
 
   @override
@@ -193,7 +229,7 @@ class _ThemeRow extends StatelessWidget {
       excludeSemantics: true,
       onTap: onTap,
       child: Material(
-        color: selected ? hx.selected : hx.card,
+        color: selected || previewed ? hx.selected : hx.card,
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
@@ -204,7 +240,9 @@ class _ThemeRow extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: selected ? hx.accent : hx.hairline,
+                color: selected
+                    ? hx.accent
+                    : (previewed ? hx.outline : hx.hairline),
                 width: selected ? 2 : 1,
               ),
             ),
@@ -299,6 +337,210 @@ class ThemeSwatch extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// The sample session every preview shows: (text, ANSI colour index or null).
+const kPreviewSession = <List<(String, int?)>>[
+  [(r'$ claude --continue', null)],
+  [('● ', 2), ('Read ', null), ('src/pricing.ts', 6), (' (128 lines)', null)],
+  [('● ', 2), ('Edit ', null), ('src/pricing.ts', 6)],
+  [('42 -  const cta = "Start now";', 1)],
+  [('42 +  const cta = "Start free trial";', 2)],
+  [('Allow this edit?', null)],
+  [('❯ 1. Yes   2. Always   3. No', null)],
+];
+
+/// Where a theme comes from, for the preview's mono line.
+String themeSource(String id) =>
+    const {'graphite', 'ink', 'moss', 'paper'}.contains(id)
+        ? 'built in'
+        : 'from $id.json';
+
+/// A theme drawn in its own colours (board settings 10): a card, a terminal
+/// with the shared sample session, and the 16 ANSI swatches, plus the button
+/// that applies it. Nothing here reads the app's current theme.
+class ThemePreview extends StatelessWidget {
+  const ThemePreview({
+    super.key,
+    required this.spec,
+    required this.onUse,
+    this.inUse = false,
+  });
+
+  final ThemeSpec spec;
+  final VoidCallback onUse;
+
+  /// The theme is the one on screen already.
+  final bool inUse;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = HxColors(spec.roles);
+    final t = TerminalColors(spec.terminal);
+    final kind = spec.isLight ? 'light' : 'dark';
+    Widget button(String label, {required bool primary}) => Container(
+      constraints: const BoxConstraints(minHeight: 48),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: primary ? c.accent : null,
+        borderRadius: BorderRadius.circular(12),
+        border: primary ? null : Border.all(color: c.outline),
+      ),
+      child: Text(
+        label,
+        style: HxType.weight(HxType.bodyLg, 600).copyWith(
+          color: primary ? c.accentForeground : c.foreground,
+        ),
+      ),
+    );
+    return ColoredBox(
+      color: c.screen,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Semantics(
+              header: true,
+              child: Text(
+                'Preview',
+                style: HxType.titleSm.copyWith(color: c.foreground),
+              ),
+            ),
+            Text(
+              '${spec.label} · $kind · ${themeSource(spec.id)}',
+              style: HxType.mono.copyWith(color: c.muted),
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ExcludeSemantics(
+                child: SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: c.card,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: c.hairline),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'studio-pc',
+                              style: HxType.heading.copyWith(color: c.foreground),
+                            ),
+                            Text(
+                              'windows · 3 agents',
+                              style: HxType.mono.copyWith(color: c.muted),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(child: button('Approve', primary: true)),
+                                const SizedBox(width: 8),
+                                Expanded(child: button('Deny', primary: false)),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: t.background,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: c.hairline),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (final line in kPreviewSession)
+                              Text.rich(
+                                TextSpan(
+                                  children: [
+                                    for (final (text, ansi) in line)
+                                      TextSpan(
+                                        text: text,
+                                        style: TextStyle(
+                                          color: ansi == null ? t.foreground : t.ansi[ansi],
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                                style: HxType.mono.copyWith(fontSize: 11.5, height: 1.5),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      for (var row = 0; row < 2; row++)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Row(
+                            children: [
+                              for (var i = 0; i < 8; i++) ...[
+                                if (i > 0) const SizedBox(width: 6),
+                                Expanded(
+                                  child: AspectRatio(
+                                    aspectRatio: 1,
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: t.ansi[row * 8 + i],
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: c.hairline),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Semantics(
+                button: true,
+                enabled: !inUse,
+                label: inUse ? '${spec.label}, in use' : 'Use ${spec.label}',
+                excludeSemantics: true,
+                onTap: inUse ? null : onUse,
+                child: Opacity(
+                  opacity: inUse ? 0.38 : 1,
+                  child: Material(
+                    color: c.solid,
+                    borderRadius: BorderRadius.circular(14),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: inUse ? null : onUse,
+                      child: Container(
+                        constraints: const BoxConstraints(minHeight: 52, minWidth: 160),
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        alignment: Alignment.center,
+                        child: Text(
+                          inUse ? 'In use' : 'Use ${spec.label}',
+                          style: HxType.bodyLg.copyWith(color: c.solidForeground),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

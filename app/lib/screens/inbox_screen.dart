@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/semantics.dart';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart' hide Icon;
@@ -197,6 +199,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
             onOpen: () => _open(i),
             onAnswer: (approve) => _answer(i, approve),
             onPin: () => controller.togglePin(i.key),
+            onMarkRead: () => controller.markRead(i),
           ));
         }
       }
@@ -404,6 +407,7 @@ class AgentRow extends StatelessWidget {
     required this.onOpen,
     required this.onAnswer,
     required this.onPin,
+    this.onMarkRead,
     this.compact = false,
     this.selected = false,
   });
@@ -414,6 +418,9 @@ class AgentRow extends StatelessWidget {
   final VoidCallback onOpen;
   final void Function(bool approve) onAnswer;
   final VoidCallback onPin;
+
+  /// Mark this agent read (null: no swipe actions, as in the sidebar).
+  final VoidCallback? onMarkRead;
 
   @override
   Widget build(BuildContext context) {
@@ -432,9 +439,15 @@ class AgentRow extends StatelessWidget {
         s.status == 'blocked' &&
         s.blockedKind == 'permission';
     final detail = s.message.isEmpty ? s.name : s.message;
+    final markRead = onMarkRead;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
-      child: Container(
+      child: _SwipeActions(
+        enabled: markRead != null && !compact,
+        pinned: item.pinned,
+        onPin: onPin,
+        onMarkRead: markRead ?? () {},
+        child: Container(
         decoration: BoxDecoration(
           color: selected ? c.selected : c.card,
           borderRadius: BorderRadius.circular(18),
@@ -448,11 +461,16 @@ class AgentRow extends StatelessWidget {
               label: label,
               excludeSemantics: true,
               onTap: onOpen,
-              onLongPress: onPin,
+              onLongPress: markRead == null ? onPin : () => _menu(context),
+              // Pin and Mark read are also screen-reader actions.
+              customSemanticsActions: {
+                CustomSemanticsAction(label: item.pinned ? 'Unpin' : 'Pin'): onPin,
+                if (markRead != null) const CustomSemanticsAction(label: 'Mark read'): markRead,
+              },
               child: InkWell(
                 borderRadius: BorderRadius.circular(18),
                 onTap: onOpen,
-                onLongPress: onPin,
+                onLongPress: markRead == null ? onPin : () => _menu(context),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(minHeight: compact ? 72 : 84),
                   child: Padding(
@@ -541,6 +559,170 @@ class AgentRow extends StatelessWidget {
                 ),
               ),
           ],
+        ),
+      ),
+      ),
+    );
+  }
+
+  /// Long-press: the same two actions as the swipe, as a menu.
+  Future<void> _menu(BuildContext context) async {
+    final c = context.hx.colors;
+    final pick = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: c.popover,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            _MenuItem(
+              icon: 'pin',
+              label: item.pinned ? 'Unpin' : 'Pin',
+              onTap: () => Navigator.pop(ctx, 'pin'),
+            ),
+            _MenuItem(
+              icon: 'check',
+              label: 'Mark read',
+              onTap: () => Navigator.pop(ctx, 'read'),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (pick == 'pin') onPin();
+    if (pick == 'read') onMarkRead?.call();
+  }
+}
+
+class _MenuItem extends StatelessWidget {
+  const _MenuItem({required this.icon, required this.label, required this.onTap});
+
+  final String icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.hx.colors;
+    return Semantics(
+      button: true,
+      label: label,
+      excludeSemantics: true,
+      onTap: onTap,
+      child: InkWell(
+        onTap: onTap,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: 56),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                HxIcon(icon, size: 20, color: c.foreground),
+                const SizedBox(width: 16),
+                Text(label, style: HxType.bodyLg),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A row that swipes left to show two 76 x 88 actions (Pin / Unpin and Mark
+/// read) on the `raised` fill. Released past half way it snaps open; a tap
+/// elsewhere closes it.
+class _SwipeActions extends StatefulWidget {
+  const _SwipeActions({
+    required this.enabled,
+    required this.pinned,
+    required this.onPin,
+    required this.onMarkRead,
+    required this.child,
+  });
+
+  final bool enabled;
+  final bool pinned;
+  final VoidCallback onPin;
+  final VoidCallback onMarkRead;
+  final Widget child;
+
+  @override
+  State<_SwipeActions> createState() => _SwipeActionsState();
+}
+
+class _SwipeActionsState extends State<_SwipeActions> {
+  static const _width = 152.0;
+  var _x = 0.0;
+
+  void _close() {
+    if (_x != 0) setState(() => _x = 0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.enabled) return widget.child;
+    final c = context.hx.colors;
+    Widget action(String icon, String label, VoidCallback run) => Expanded(
+      child: Semantics(
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        onTap: () {
+          run();
+          _close();
+        },
+        child: InkWell(
+          onTap: () {
+            run();
+            _close();
+          },
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              HxIcon(icon, size: 22, color: c.foreground),
+              const SizedBox(height: 4),
+              Text(label, style: HxType.caption.copyWith(color: c.foreground)),
+            ],
+          ),
+        ),
+      ),
+    );
+    return TapRegion(
+      onTapOutside: (_) => _close(),
+      child: GestureDetector(
+        onHorizontalDragUpdate: (d) =>
+            setState(() => _x = (_x + d.delta.dx).clamp(-_width, 0.0)),
+        onHorizontalDragEnd: (_) =>
+            setState(() => _x = _x < -_width / 2 ? -_width : 0),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: Stack(
+            children: [
+              if (_x < 0)
+                Positioned.fill(
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Container(
+                      width: _width,
+                      color: c.raised,
+                      child: Row(
+                        children: [
+                          action('pin', widget.pinned ? 'Unpin' : 'Pin', widget.onPin),
+                          action('check', 'Mark read', widget.onMarkRead),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              Transform.translate(offset: Offset(_x, 0), child: widget.child),
+            ],
+          ),
         ),
       ),
     );
