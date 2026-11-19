@@ -770,7 +770,9 @@ class _MachineRow extends ConsumerWidget {
           excludeSemantics: true,
           onTap: tap,
           onLongPress: () => _actions(context, ref),
-          child: InkWell(
+          child: HxPressable(
+            radius: 12,
+            scale: false,
             onTap: tap,
             onLongPress: () => _actions(context, ref),
             child: Container(
