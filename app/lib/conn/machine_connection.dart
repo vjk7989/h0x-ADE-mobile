@@ -59,6 +59,12 @@ class Failed extends ConnState {
   final String reason;
 }
 
+/// [Failed] because h0x-core is not on the machine: the UI can offer to set
+/// where it is.
+class CoreMissing extends Failed {
+  const CoreMissing(super.reason);
+}
+
 /// What an agent needs from the person, for the inbox groups.
 enum AgentGroup { needsYou, working, done, idle }
 

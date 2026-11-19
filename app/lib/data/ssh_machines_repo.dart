@@ -13,6 +13,7 @@ class SshMachine {
     required this.user,
     this.port = 22,
     this.tailscale = false,
+    this.corePath = '',
   });
 
   final String id;
@@ -26,17 +27,21 @@ class SshMachine {
   /// Tailscale SSH: no key is offered, the tailnet authorises.
   final bool tailscale;
 
+  /// Where h0x-core is on that machine when it is not in a usual place; '' means search.
+  final String corePath;
+
   /// `user@host:port`, with an IPv6 host in brackets.
   String get address =>
       '$user@${host.contains(':') ? '[$host]' : host}:$port';
 
-  SshMachine copyWith({String? name}) => SshMachine(
+  SshMachine copyWith({String? name, String? corePath}) => SshMachine(
     id: id,
     name: name ?? this.name,
     host: host,
     user: user,
     port: port,
     tailscale: tailscale,
+    corePath: corePath ?? this.corePath,
   );
 
   Map<String, Object?> toJson() => {
@@ -46,6 +51,7 @@ class SshMachine {
     'user': user,
     'port': port,
     'tailscale': tailscale,
+    if (corePath.isNotEmpty) 'corePath': corePath,
   };
 
   factory SshMachine.fromJson(Map<String, Object?> j) => SshMachine(
@@ -55,6 +61,7 @@ class SshMachine {
     user: j['user']! as String,
     port: j['port']! as int,
     tailscale: (j['tailscale'] as bool?) ?? false,
+    corePath: (j['corePath'] as String?) ?? '',
   );
 
   /// The same login target (a duplicate is refused).
@@ -137,6 +144,14 @@ class SshMachinesController extends Notifier<List<SshMachine>> {
     if (err != null) throw ArgumentError(err);
     state = [
       for (final m in state) m.id == id ? m.copyWith(name: name.trim()) : m,
+    ];
+    await _save();
+  }
+
+  /// Sets where h0x-core is on that machine ('' goes back to searching).
+  Future<void> setCorePath(String id, String path) async {
+    state = [
+      for (final m in state) m.id == id ? m.copyWith(corePath: path.trim()) : m,
     ];
     await _save();
   }

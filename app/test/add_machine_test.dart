@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:hyperox/conn/machine_connection.dart';
+import 'package:hyperox/conn/ssh/ssh_connection.dart' show missingCoreMessage;
 import 'package:hyperox/data/ssh_gateway.dart';
 import 'package:hyperox/data/ssh_machines_repo.dart';
 import 'package:hyperox/screens/add_machine_screen.dart';
@@ -107,8 +109,8 @@ void main() {
     });
     test('core missing', () {
       expect(
-        ex("h0x-core is not on this machine's PATH for SSH logins").title,
-        'h0x-core is not installed for SSH logins',
+        ex(missingCoreMessage).title,
+        'HyperOx core not found',
       );
     });
     test('banner', () {
@@ -214,8 +216,7 @@ void main() {
         'login refused: add the phone key to ~/.ssh/authorized_keys':
             'Permission denied (publickey)',
         'cannot connect: SocketException': 'Cannot reach devbox.tail3a1f.ts.net:22',
-        "h0x-core is not on this machine's PATH for SSH logins":
-            'h0x-core is not installed for SSH logins',
+        missingCoreMessage: 'HyperOx core not found',
         'the login prints text; see docs/machines.md': 'The login prints text',
       };
       for (final e in cases.entries) {
@@ -273,6 +274,171 @@ void main() {
       expect(c.read(sshMachinesProvider), isEmpty);
       expect(find.text('Connect'), findsOneWidget);
       expect(gw.sessions.single.closed, isTrue);
+    });
+  });
+
+  group('Core path (Advanced)', () {
+    testWidgets('collapsed by default; Advanced opens the field', (tester) async {
+      await _pumpRouted(tester);
+      expect(find.text('Advanced'), findsOneWidget);
+      expect(find.text('Core path (optional)'), findsNothing);
+      await tester.ensureVisible(find.text('Advanced'));
+      await tester.tap(find.text('Advanced'));
+      await tester.pumpAndSettle();
+      expect(find.text('Core path (optional)'), findsOneWidget);
+      await tester.tap(find.text('Advanced'));
+      await tester.pumpAndSettle();
+      expect(find.text('Core path (optional)'), findsNothing);
+    });
+
+    testWidgets('a typed core path is stored with the machine and given to the connection', (
+      tester,
+    ) async {
+      final (c, gw) = await _pumpRouted(tester);
+      await _fill(tester);
+      await tester.ensureVisible(find.text('Advanced'));
+      await tester.tap(find.text('Advanced'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, r'  G:\HyperOx\core\h0x-core.exe  ');
+      await _connect(tester);
+      expect(gw.sessions.last.machine.corePath, r'G:\HyperOx\core\h0x-core.exe');
+      expect(c.read(sshMachinesProvider).single.corePath, r'G:\HyperOx\core\h0x-core.exe');
+    });
+
+    testWidgets('no core path: nothing is stored', (tester) async {
+      final (c, gw) = await _pumpRouted(tester);
+      await _fill(tester);
+      await _connect(tester);
+      expect(gw.sessions.last.machine.corePath, '');
+      expect(c.read(sshMachinesProvider).single.corePath, '');
+    });
+
+    testWidgets('core not found: the error says so and Advanced opens by itself', (tester) async {
+      final (c, _) = await _pumpRouted(
+        tester,
+        behavior: FakeBehavior(end: const CoreMissing(missingCoreMessage)),
+      );
+      await _fill(tester);
+      await _connect(tester);
+      expect(find.text('HyperOx core not found'), findsOneWidget);
+      expect(find.text('Core path (optional)'), findsOneWidget);
+      expect(c.read(sshMachinesProvider), isEmpty);
+    });
+
+    testWidgets('a path set after the error is used on the next try', (tester) async {
+      final (c, gw) = await _pumpRouted(
+        tester,
+        behavior: FakeBehavior(end: const CoreMissing(missingCoreMessage)),
+      );
+      await _fill(tester);
+      await _connect(tester);
+      await tester.enterText(find.byType(TextField).last, '/opt/hyperox/h0x-core');
+      await _connect(tester);
+      expect(gw.sessions.last.machine.corePath, '/opt/hyperox/h0x-core');
+      expect(c.read(sshMachinesProvider), isEmpty);
+    });
+
+    test('a machine saved before this existed still loads, and the path round-trips', () {
+      final old = SshMachine.fromJson({'id': 'a', 'name': 'a', 'host': 'h', 'user': 'u', 'port': 22});
+      expect(old.corePath, '');
+      expect(old.toJson().containsKey('corePath'), isFalse);
+      final set = old.copyWith(corePath: '/x/h0x-core');
+      expect(SshMachine.fromJson(set.toJson()).corePath, '/x/h0x-core');
+      expect(set.copyWith(name: 'b').corePath, '/x/h0x-core');
+    });
+
+    testWidgets('the repo sets and clears a machine core path', (tester) async {
+      final (c, _) = await _pumpRouted(tester, stored: {'ssh.machines': jsonEncode([devbox.toJson()])});
+      final repo = c.read(sshMachinesProvider.notifier);
+      await repo.setCorePath(devbox.id, ' /opt/x/h0x-core ');
+      expect(c.read(sshMachinesProvider).single.corePath, '/opt/x/h0x-core');
+      await repo.setCorePath(devbox.id, '');
+      expect(c.read(sshMachinesProvider).single.corePath, '');
+    });
+
+    testWidgets('golden: the Advanced field open, light', (tester) async {
+      await pumpGolden(
+        tester,
+        const AddMachineScreen(),
+        overrides: [sshGatewayProvider.overrideWithValue(FakeGateway())],
+      );
+      await tester.ensureVisible(find.text('Advanced'));
+      await tester.tap(find.text('Advanced'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).last, r'G:\HyperOx\core\h0x-core.exe');
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Core path (optional)'));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/add_machine_core_path_light.png'),
+      );
+    });
+
+    testWidgets('golden: core not found with the field open, dark, text 2.0', (tester) async {
+      await pumpGolden(
+        tester,
+        const AddMachineScreen(),
+        brightness: Brightness.dark,
+        textScale: 2.0,
+        overrides: [
+          sshGatewayProvider.overrideWithValue(
+            FakeGateway(fallback: FakeBehavior(end: const CoreMissing(missingCoreMessage))),
+          ),
+        ],
+      );
+      final fields = find.byType(TextField);
+      await tester.enterText(fields.at(0), 'devbox.tail3a1f.ts.net');
+      await tester.enterText(fields.at(1), 'dev');
+      await tester.enterText(fields.at(2), '22');
+      await tester.ensureVisible(find.text('Connect'));
+      await tester.tap(find.text('Connect'));
+      await _frames(tester);
+      expect(find.text('HyperOx core not found'), findsOneWidget);
+      await tester.ensureVisible(find.text('HyperOx core not found'));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/add_machine_core_missing_dark_2.png'),
+      );
+    });
+
+    testWidgets('golden: core not found, light', (tester) async {
+      await pumpGolden(
+        tester,
+        const AddMachineScreen(),
+        overrides: [
+          sshGatewayProvider.overrideWithValue(
+            FakeGateway(fallback: FakeBehavior(end: const CoreMissing(missingCoreMessage))),
+          ),
+        ],
+      );
+      final fields = find.byType(TextField);
+      await tester.enterText(fields.at(0), 'devbox.tail3a1f.ts.net');
+      await tester.enterText(fields.at(1), 'dev');
+      await tester.enterText(fields.at(2), '22');
+      await tester.ensureVisible(find.text('Connect'));
+      await tester.tap(find.text('Connect'));
+      await _frames(tester);
+      await tester.ensureVisible(find.text('HyperOx core not found'));
+      await tester.pumpAndSettle();
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/add_machine_core_missing_light.png'),
+      );
+    });
+
+    testWidgets('semantics: the Advanced toggle and the open field', (tester) async {
+      await pumpGolden(
+        tester,
+        const AddMachineScreen(),
+        overrides: [sshGatewayProvider.overrideWithValue(FakeGateway())],
+        dpr: 3.0,
+      );
+      await tester.ensureVisible(find.text('Advanced'));
+      await tester.tap(find.text('Advanced'));
+      await tester.pumpAndSettle();
+      await expectAccessible(tester);
     });
   });
 
