@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -376,6 +377,57 @@ void main() {
       await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
       await tester.pumpAndSettle();
       expect(gw.sessions[1].decisions, ['reject']);
+    });
+
+    // Board states (design machines 05, 07 and 10). In the SSH-only build the
+    // loading state is a row still being probed ("checking"); the skeleton
+    // rows of 05 belong to account sync.
+    testWidgets('golden: rows still being probed, dark', (tester) async {
+      final hold = Completer<void>();
+      await pump(
+        tester,
+        machines: [devbox, raspi],
+        byHost: {
+          'devbox.tail3a1f.ts.net': FakeBehavior(hold: hold),
+          '192.168.1.42': FakeBehavior(hold: hold),
+        },
+        brightness: Brightness.dark,
+      );
+      expect(find.text('checking'), findsWidgets);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/machines_loading_dark.png'),
+      );
+      hold.complete();
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('golden: every machine offline, dark', (tester) async {
+      await pump(
+        tester,
+        machines: [devbox, raspi],
+        byHost: {
+          'devbox.tail3a1f.ts.net': FakeBehavior(end: const Failed('cannot connect: x')),
+          '192.168.1.42': FakeBehavior(end: const Failed('cannot connect: x')),
+        },
+        brightness: Brightness.dark,
+      );
+      expect(find.text('offline'), findsWidgets);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/machines_offline_dark.png'),
+      );
+    });
+
+    testWidgets('golden: the row actions sheet, dark', (tester) async {
+      await pump(tester, machines: [devbox, raspi], brightness: Brightness.dark);
+      await tester.longPress(find.text('devbox'));
+      await tester.pumpAndSettle();
+      expect(find.text('Open sessions'), findsOneWidget);
+      await expectLater(
+        find.byType(MaterialApp),
+        matchesGoldenFile('goldens/machines_actions_dark.png'),
+      );
     });
 
     for (final dark in [false, true]) {
