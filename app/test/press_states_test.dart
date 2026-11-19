@@ -83,6 +83,17 @@ void main() {
         brightness: dark ? Brightness.dark : Brightness.light,
       );
       final gestures = await _holdPressed(t);
+      for (final (_, label) in _kinds) {
+        final scale = t
+            .widget<AnimatedScale>(
+              find.descendant(
+                of: find.byKey(ValueKey('$label-pressed')),
+                matching: find.byType(AnimatedScale),
+              ),
+            )
+            .scale;
+        expect(scale, 0.97, reason: '$label is held down');
+      }
       await expectGolden(find.byType(MaterialApp), 'press_states_$tag');
       for (final g in gestures) {
         await g.cancel();
