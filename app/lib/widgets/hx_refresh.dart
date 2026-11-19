@@ -1,3 +1,4 @@
+import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:material_ui/material_ui.dart' hide RefreshIndicator;
 
@@ -48,7 +49,9 @@ class _HxRefreshState extends State<HxRefresh> {
         // not disarm the refresh.
         _armed = false;
       }
-    } else if (n is ScrollEndNotification) {
+    } else if (n is ScrollEndNotification ||
+        (n is UserScrollNotification && n.direction == ScrollDirection.idle)) {
+      // The finger lifted (the spring may still be running): decide now.
       final go = _armed;
       _armed = false;
       if (go) {
