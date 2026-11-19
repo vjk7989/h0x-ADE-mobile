@@ -102,7 +102,8 @@ class HxCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: c.hairline),
       ),
-      child: child,
+      // Ink in rows below needs a Material; the card draws its own fill.
+      child: Material(type: MaterialType.transparency, child: child),
     );
   }
 }

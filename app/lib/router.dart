@@ -10,7 +10,9 @@ import 'screens/settings_screen.dart';
 import 'screens/sign_in_screen.dart';
 import 'screens/theme_picker_screen.dart';
 import 'screens/spaces_screen.dart';
+import 'screens/todo_screen.dart';
 import 'session_state.dart';
+import 'widgets/nav_shell.dart';
 
 /// Where a user goes, given who they are. Returns null to stay.
 ///
@@ -46,24 +48,34 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/', builder: (_, _) => const SignInScreen()),
       GoRoute(path: '/sign-in', builder: (_, _) => const SignInScreen()),
-      GoRoute(path: '/inbox', builder: (_, _) => const InboxScreen()),
+      // Full-screen routes, outside the navigation.
       GoRoute(
-        path: '/machines',
-        builder: (_, _) => const MachinesScreen(),
-        routes: [
-          GoRoute(path: 'add', builder: (_, _) => const AddMachineScreen()),
-        ],
+        path: '/machines/add',
+        builder: (_, _) => const AddMachineScreen(),
+      ),
+      GoRoute(
+        path: '/settings/theme',
+        builder: (_, _) => const ThemePickerScreen(),
       ),
       GoRoute(
         path: '/agent/:machine/:terminal',
         builder: (_, _) => const AgentScreen(),
       ),
-      GoRoute(path: '/spaces', builder: (_, _) => const SpacesScreen()),
-      GoRoute(
-        path: '/settings',
-        builder: (_, _) => const SettingsScreen(),
+      ShellRoute(
+        builder: (context, state, child) =>
+            NavShell(location: state.uri.path, child: child),
         routes: [
-          GoRoute(path: 'theme', builder: (_, _) => const ThemePickerScreen()),
+          GoRoute(path: '/inbox', builder: (_, _) => const InboxScreen()),
+          GoRoute(
+            path: '/machines',
+            builder: (_, _) => const MachinesScreen(),
+          ),
+          GoRoute(path: '/spaces', builder: (_, _) => const SpacesScreen()),
+          GoRoute(path: '/todo', builder: (_, _) => const TodoScreen()),
+          GoRoute(
+            path: '/settings',
+            builder: (_, _) => const SettingsScreen(),
+          ),
         ],
       ),
     ],

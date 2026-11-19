@@ -100,9 +100,7 @@ class _SpacesScreenState extends ConsumerState<SpacesScreen> {
     final all = ref.watch(connectionsProvider);
     final conn = _conn(all);
     if (conn == null) {
-      return AppShell(
-        selected: NavDest.spaces,
-        onNavigate: widget.onNavigate,
+      return ScreenBody(
         body: Column(
           children: [
             const ScreenHeader(title: 'Spaces'),
@@ -124,9 +122,7 @@ class _SpacesScreenState extends ConsumerState<SpacesScreen> {
       _loadedFor = conn.machine.id;
       Future<void>.microtask(controller.load);
     }
-    return AppShell(
-      selected: NavDest.spaces,
-      onNavigate: widget.onNavigate,
+    return ScreenBody(
       body: ValueListenableBuilder<SpacesData>(
         valueListenable: controller.value,
         builder: (context, data, _) => _body(context, all, conn, controller, data),

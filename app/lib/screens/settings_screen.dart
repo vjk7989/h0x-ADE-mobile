@@ -249,9 +249,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       ),
     ];
 
-    return AppShell(
-      selected: NavDest.settings,
-      onNavigate: widget.onNavigate,
+    return ScreenBody(
       body: Column(
         children: [
           const ScreenHeader(title: 'Settings'),

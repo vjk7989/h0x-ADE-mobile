@@ -88,11 +88,13 @@ void main() {
       await pumpGolden(tester, const ThemePickerScreen());
       final handle = tester.ensureSemantics();
       await tester.pump();
+      expect(find.bySemanticsLabel('Darkmatter, dark theme'), findsOneWidget);
+      // Light themes sit below the dark ones; the list builds lazily.
+      await tester.scrollUntilVisible(find.text('Paper'), 300);
       expect(
         find.bySemanticsLabel('Paper, light theme, selected'),
         findsOneWidget,
       );
-      expect(find.bySemanticsLabel('Darkmatter, dark theme'), findsOneWidget);
       expect(find.byIcon(Icons.check), findsOneWidget);
       handle.dispose();
     });
@@ -142,7 +144,7 @@ void main() {
     }
 
     testWidgets('semantics: labelled targets of at least 48 dp', (tester) async {
-      await pumpGolden(tester, const ThemePickerScreen());
+      await pumpGolden(tester, const ThemePickerScreen(), dpr: 3.0);
       await expectAccessible(tester);
     });
 
@@ -152,6 +154,7 @@ void main() {
         const ThemePickerScreen(),
         brightness: Brightness.dark,
         textScale: 2.0,
+        dpr: 3.0,
       );
       await expectAccessible(tester);
     });

@@ -218,7 +218,6 @@ void main() {
       expect(find.text('2 need you · 2 machines'), findsOneWidget);
       expect(find.bySemanticsLabel(RegExp(r'^claude in ~/acme-web on studio-pc, needs you: Allow edit to README.md\?')),
           findsOneWidget);
-      expect(find.bySemanticsLabel('Inbox, 2 needs you'), findsOneWidget);
       expect(find.text('Approve'), findsOneWidget, reason: 'only the permission has it');
       expect(find.text('Deny'), findsOneWidget);
     });

@@ -225,9 +225,7 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
     final all = ref.watch(connectionsProvider);
     final conn = _conn(all);
     if (conn == null) {
-      return AppShell(
-        selected: NavDest.todo,
-        onNavigate: widget.onNavigate,
+      return ScreenBody(
         body: Column(
           children: [
             const ScreenHeader(title: 'To-do'),
@@ -249,9 +247,7 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
       _loadedFor = conn.machine.id;
       Future<void>.microtask(controller.load);
     }
-    return AppShell(
-      selected: NavDest.todo,
-      onNavigate: widget.onNavigate,
+    return ScreenBody(
       body: ValueListenableBuilder<TodoState>(
         valueListenable: controller.value,
         builder: (context, s, _) {

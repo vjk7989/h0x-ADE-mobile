@@ -64,9 +64,7 @@ class _InboxScreenState extends ConsumerState<InboxScreen> {
   Widget build(BuildContext context) {
     final controller = ref.watch(inboxProvider);
     final wide = MediaQuery.sizeOf(context).width >= kRailBreakpoint;
-    return AppShell(
-      selected: NavDest.inbox,
-      onNavigate: widget.onNavigate,
+    return ScreenBody(
       body: ValueListenableBuilder<InboxState>(
         valueListenable: controller.value,
         builder: (context, state, _) {
