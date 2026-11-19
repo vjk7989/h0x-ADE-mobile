@@ -40,7 +40,8 @@ class HxIntro extends StatefulWidget {
 
   /// Only once per process, and not when the app was opened on a deep link.
   static bool get shouldShow =>
-      !_shown && ui.PlatformDispatcher.instance.defaultRouteName == '/';
+      !_shown &&
+      WidgetsBinding.instance.platformDispatcher.defaultRouteName == '/';
 
   static void markShown() => _shown = true;
 
@@ -87,7 +88,7 @@ class _HxIntroState extends State<HxIntro> with SingleTickerProviderStateMixin {
 
   void _skip() {
     if (_reduced) return;
-    if (_c.value * _total < _skipTo) _c.value = _skipTo / _total;
+    if (_c.value * _total < _skipTo) _c.forward(from: _skipTo / _total);
   }
 
   @override
