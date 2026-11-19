@@ -31,6 +31,29 @@ Future<void> _frames(WidgetTester tester, [int n = 6]) async {
   }
 }
 
+Session _say(Session s, String message) => Session(
+  terminal: s.terminal,
+  name: s.name,
+  agent: s.agent,
+  folder: s.folder,
+  status: s.status,
+  live: s.live,
+  blockedKind: s.blockedKind,
+  message: message,
+);
+
+/// The blocked fixtures say what they ask, as on the board.
+void _withMessages(FakeConnection f) {
+  f.live = {
+    for (final e in f.live.entries)
+      e.key: switch (e.key) {
+        't2' => _say(e.value, 'Allow edit to README.md?'),
+        't3' => _say(e.value, 'Which region: eu-west-1 or us-east-1?'),
+        _ => e.value,
+      },
+  };
+}
+
 /// Opens terminal [t] of [fake] and lets it attach with some output.
 Future<void> _open(
   WidgetTester tester,
@@ -42,6 +65,7 @@ Future<void> _open(
   double dpr = 1.0,
   bool output = true,
 }) async {
+  _withMessages(fake);
   await pumpGolden(
     tester,
     AgentScreen(machineId: 'fake', terminal: t, connection: fake),
