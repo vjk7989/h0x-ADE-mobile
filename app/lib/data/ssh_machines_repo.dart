@@ -61,7 +61,7 @@ class SshMachine {
     user: j['user']! as String,
     port: j['port']! as int,
     tailscale: (j['tailscale'] as bool?) ?? false,
-    corePath: (j['corePath'] as String?) ?? '',
+    corePath: j['corePath'] is String ? j['corePath']! as String : '',
   );
 
   /// The same login target (a duplicate is refused).
@@ -69,6 +69,16 @@ class SshMachine {
       host.toLowerCase() == o.host.toLowerCase() &&
       port == o.port &&
       user == o.user;
+}
+
+/// A core path as typed or pasted: trimmed, and one pair of quotes around the
+/// whole path (Explorer's "Copy as path" adds them) removed.
+String cleanCorePath(String raw) {
+  var p = raw.trim();
+  if (p.length >= 2 && (p[0] == '"' || p[0] == "'") && p[p.length - 1] == p[0]) {
+    p = p.substring(1, p.length - 1).trim();
+  }
+  return p;
 }
 
 final _hostName = RegExp(r'^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?$');
@@ -120,15 +130,22 @@ class SshMachinesController extends Notifier<List<SshMachine>> {
   List<SshMachine> build() {
     final raw = ref.watch(sharedPrefsProvider).getString(_kMachines);
     if (raw == null) return const [];
+    final Object? decoded;
     try {
-      return [
-        for (final m in jsonDecode(raw) as List<Object?>)
-          SshMachine.fromJson(m! as Map<String, Object?>),
-      ];
+      decoded = jsonDecode(raw);
     } catch (_) {
       // A damaged store must not stop the app: start empty.
       return const [];
     }
+    if (decoded is! List<Object?>) return const [];
+    // One bad entry is skipped; the others stay.
+    final out = <SshMachine>[];
+    for (final m in decoded) {
+      try {
+        out.add(SshMachine.fromJson(m! as Map<String, Object?>));
+      } catch (_) {}
+    }
+    return out;
   }
 
   /// False when the same user@host:port is already saved.
@@ -151,7 +168,7 @@ class SshMachinesController extends Notifier<List<SshMachine>> {
   /// Sets where h0x-core is on that machine ('' goes back to searching).
   Future<void> setCorePath(String id, String path) async {
     state = [
-      for (final m in state) m.id == id ? m.copyWith(corePath: path.trim()) : m,
+      for (final m in state) m.id == id ? m.copyWith(corePath: cleanCorePath(path)) : m,
     ];
     await _save();
   }
