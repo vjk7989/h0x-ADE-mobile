@@ -208,13 +208,18 @@ class _SpacesScreenState extends ConsumerState<SpacesScreen> {
             children: [
               ...notes,
               for (final s in view.spaces)
-                _SpaceCard(
-                  space: s,
-                  data: data,
-                  enabled: !data.offline,
-                  stack: MediaQuery.textScalerOf(context).scale(14) >= 21,
-                  onStart: () => _startAgent(conn, s, view),
-                  onPane: (t) => _openPane(conn, t),
+                // Offline: the last known map, greyed to 60 %. Panes still
+                // open their read-only scrollback; Start agent is off.
+                Opacity(
+                  opacity: data.offline ? 0.6 : 1,
+                  child: _SpaceCard(
+                    space: s,
+                    data: data,
+                    enabled: !data.offline,
+                    stack: MediaQuery.textScalerOf(context).scale(14) >= 21,
+                    onStart: () => _startAgent(conn, s, view),
+                    onPane: (t) => _openPane(conn, t),
+                  ),
                 ),
             ],
           ),
@@ -328,9 +333,12 @@ class _SpacesScreenState extends ConsumerState<SpacesScreen> {
               if (ti < 0)
                 const _NoTabs()
               else
-                SizedBox(
-                  height: (MediaQuery.sizeOf(context).height - 340).clamp(240.0, 680.0),
-                  child: _widePanes(conn, data, space.tabs[ti].panes),
+                Opacity(
+                  opacity: data.offline ? 0.6 : 1,
+                  child: SizedBox(
+                    height: (MediaQuery.sizeOf(context).height - 340).clamp(240.0, 680.0),
+                    child: _widePanes(conn, data, space.tabs[ti].panes),
+                  ),
                 ),
             ],
           ),
@@ -528,7 +536,7 @@ class _StartButton extends StatelessWidget {
     return Semantics(
       button: true,
       enabled: enabled,
-      label: 'Start agent',
+      label: enabled ? 'Start agent' : 'Start agent, unavailable while offline',
       excludeSemantics: true,
       onTap: enabled ? onTap : null,
       child: Opacity(
@@ -772,11 +780,15 @@ class _PaneCard extends StatelessWidget {
         // on `well` (dark) or #f6f6f4 (light).
         color: dark ? c.well : c.card,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: needs ? c.working : (finished ? c.outline : c.hairline),
-          width: needs ? 1.5 : 1,
-        ),
+        // An exited pane has a dashed edge (drawn below), not a solid one.
+        border: finished
+            ? null
+            : Border.all(
+                color: needs ? c.working : c.hairline,
+                width: needs ? 1.5 : 1,
+              ),
       ),
+      foregroundDecoration: null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -824,7 +836,16 @@ class _PaneCard extends StatelessWidget {
       label: label,
       excludeSemantics: true,
       onTap: onTap,
-      child: InkWell(borderRadius: BorderRadius.circular(10), onTap: onTap, child: card),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: finished
+            ? CustomPaint(
+                foregroundPainter: _DashedEdge(color: c.outline, radius: 10),
+                child: card,
+              )
+            : card,
+      ),
     );
   }
 }
@@ -981,4 +1002,37 @@ class _StartDialog extends StatelessWidget {
       ],
     );
   }
+}
+
+/// A 1 dp dashed rounded edge (dash 4, gap 3): an exited pane.
+class _DashedEdge extends CustomPainter {
+  _DashedEdge({required this.color, required this.radius});
+
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          (Offset.zero & size).deflate(0.5),
+          Radius.circular(radius),
+        ),
+      );
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = color;
+    for (final metric in path.computeMetrics()) {
+      var d = 0.0;
+      while (d < metric.length) {
+        canvas.drawPath(metric.extractPath(d, d + 4), paint);
+        d += 7;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedEdge old) => old.color != color || old.radius != radius;
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter_riverpod/flutter_riverpod.dart' show ProviderScope;
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hyperox/conn/machine_connection.dart';
@@ -257,10 +258,39 @@ void main() {
     await expectGolden(find.byType(MaterialApp), 'spaces_oldcore_dark');
   });
 
-  testWidgets('golden: offline, last known, dark', (t) async {
-    final c = studio()..spacesError = StateError('not connected: timed out');
+  testWidgets('golden: offline draws the last known map greyed, dark', (t) async {
+    final c = studio();
     await show(t, [c], b: Brightness.dark);
+    // The machine drops: the map it last showed stays, dimmed.
+    c.spacesError = StateError('not connected: timed out');
+    await ProviderScope.containerOf(t.element(find.byType(SpacesScreen)))
+        .read(spacesControllerProvider('studio'))
+        .load();
+    await t.pumpAndSettle();
+    expect(find.text('studio-pc is offline'), findsOneWidget);
+    expect(find.text('acme-web'), findsOneWidget, reason: 'the last known layout');
+    final dim = t.widgetList<Opacity>(find.byType(Opacity)).where((o) => o.opacity == 0.6);
+    expect(dim, isNotEmpty);
     await expectGolden(find.byType(MaterialApp), 'spaces_offline_dark');
+  });
+
+  testWithSemantics('offline: panes still open, Start agent says why it is off', (t) async {
+    String? opened;
+    final c = studio();
+    await pumpGolden(
+      t,
+      SpacesScreen(onOpenPane: (m, term) => opened = term, onNavigate: (_) {}),
+      overrides: overrides([c]),
+    );
+    await t.pumpAndSettle();
+    c.spacesError = StateError('not connected: gone');
+    await ProviderScope.containerOf(t.element(find.byType(SpacesScreen)))
+        .read(spacesControllerProvider('studio'))
+        .load();
+    await t.pumpAndSettle();
+    expect(find.bySemanticsLabel('Start agent, unavailable while offline'), findsWidgets);
+    await t.tap(find.text('shell'));
+    expect(opened, 't-shell');
   });
 
   testWidgets('golden: text 200 percent stacks the panes, accessible', (t) async {

@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hyperox/conn/machine_connection.dart';
 import 'package:hyperox/screens/todo_screen.dart';
+import 'package:hyperox/theme/themes.dart';
+import 'package:hyperox/widgets/hx_icons.dart';
 import 'package:hyperox/state/connections.dart';
 import 'package:hyperox/state/inbox.dart';
 import 'package:material_ui/material_ui.dart';
@@ -346,6 +348,73 @@ void main() {
   });
 
   // Board states, one golden each (design todo 04 to 10 and 13).
+  group('accentOnInverse', () {
+    test('Undo reads at 4.5:1 on the inverse fill in every theme', () {
+      for (final spec in kThemeSpecs) {
+        final c = HxColors(spec.roles);
+        final fill = c.foreground;
+        final ink = accentOnInverse(c.accent, fill);
+        final la = ink.computeLuminance();
+        final lb = fill.computeLuminance();
+        final ratio = ((la > lb ? la : lb) + 0.05) / ((la > lb ? lb : la) + 0.05);
+        expect(ratio, greaterThanOrEqualTo(4.5), reason: spec.id);
+      }
+    });
+
+    test('an accent that already reads is kept', () {
+      expect(
+        accentOnInverse(const Color(0xFFFFFFFF), const Color(0xFF000000)),
+        const Color(0xFFFFFFFF),
+      );
+    });
+  });
+
+  testWidgets('editing: the Done bar shows, Done saves', (t) async {
+    final c = machine();
+    await show(t, [c]);
+    expect(find.text('Done saves · Back cancels'), findsNothing);
+    await t.tap(find.text('Update the app icon'));
+    await t.pump(const Duration(milliseconds: 50));
+    await t.tap(find.text('Update the app icon'));
+    await t.pumpAndSettle();
+    expect(find.text('Done saves · Back cancels'), findsOneWidget);
+    await t.enterText(find.byType(TextField).last, 'Icon and splash');
+    await t.tap(find.text('Done'));
+    await t.pumpAndSettle();
+    expect(c.files[release], contains('- [ ] Icon and splash\n'));
+    expect(find.text('Done saves · Back cancels'), findsNothing);
+  });
+
+  testWidgets('editing: Back cancels and leaves the title', (t) async {
+    final c = machine();
+    await show(t, [c]);
+    await t.tap(find.text('Update the app icon'));
+    await t.pump(const Duration(milliseconds: 50));
+    await t.tap(find.text('Update the app icon'));
+    await t.pumpAndSettle();
+    await t.enterText(find.byType(TextField).last, 'Something else');
+    await t.binding.handlePopRoute();
+    await t.pumpAndSettle();
+    expect(c.files[release], releaseText);
+    expect(find.text('Update the app icon'), findsOneWidget);
+    expect(find.text('Done saves · Back cancels'), findsNothing);
+  });
+
+  testWidgets('a lifted card has a grip and the list shows a drop line', (t) async {
+    final c = machine();
+    await show(t, [c]);
+    final g = await t.startGesture(t.getCenter(find.text('Book a design review')));
+    await t.pump(const Duration(milliseconds: 600));
+    await g.moveBy(const Offset(0, -140));
+    await t.pump(const Duration(milliseconds: 100));
+    expect(
+      find.byWidgetPredicate((w) => w is HxIcon && w.name == 'grip'),
+      findsOneWidget,
+    );
+    await g.up();
+    await t.pumpAndSettle();
+  });
+
   testWidgets('golden: the list switcher, dark', (t) async {
     await show(t, [machine()], b: Brightness.dark);
     await t.tap(find.text('Release 0.2'));
