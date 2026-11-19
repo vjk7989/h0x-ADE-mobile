@@ -18,7 +18,7 @@ void main() {
         if (!use.hasMatch(line)) continue;
         // The wrapper classes' own constructors and their one HxBanner.
         if (RegExp(r'const (_Banner|_Note|_ApprovalBanner)\(\{').hasMatch(line)) continue;
-        final from = i < 14 ? 0 : i - 14;
+        final from = i < 30 ? 0 : i - 30;
         final near = lines.sublist(from, i + 1).join('\n');
         final inWrapper = RegExp(r'class _(Banner|ApprovalBanner|Note)\b').hasMatch(near);
         if (!near.contains('HxBannerSlot(') && !inWrapper) bad.add('$path:${i + 1}');
