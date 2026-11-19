@@ -152,7 +152,7 @@ class SshMachineConnection implements MachineConnection {
     while (!_closing) {
       _emit(const Connecting());
       // The wait before the next try, told to the listeners with the failure.
-      Duration? wait;
+      final Duration wait;
       try {
         await _session();
         if (_closing) return;
@@ -173,7 +173,7 @@ class SshMachineConnection implements MachineConnection {
       _rpc = null;
       await _transport?.close();
       if (_closing) return;
-      await _delay(wait ?? _backoff.next());
+      await _delay(wait);
     }
   }
 
