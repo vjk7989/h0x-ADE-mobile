@@ -17,7 +17,7 @@ void main() {
         final line = lines[i];
         if (!use.hasMatch(line)) continue;
         // The wrapper classes' own constructors and their one HxBanner.
-        if (line.contains('const _Banner({') || line.contains('const _Note({')) continue;
+        if (RegExp(r'const (_Banner|_Note|_ApprovalBanner)\(\{').hasMatch(line)) continue;
         final from = i < 14 ? 0 : i - 14;
         final near = lines.sublist(from, i + 1).join('\n');
         final inWrapper = RegExp(r'class _(Banner|ApprovalBanner|Note)\b').hasMatch(near);
