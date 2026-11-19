@@ -13,7 +13,6 @@ import '../data/machine_status.dart';
 import '../data/ssh_gateway.dart';
 import '../data/ssh_machines_repo.dart';
 import '../session_state.dart';
-import '../theme/motion.dart';
 import '../theme/themes.dart';
 import '../theme/type.dart';
 import '../state/inbox.dart';
@@ -21,6 +20,7 @@ import '../widgets/app_shell.dart';
 import '../widgets/hx.dart';
 import '../widgets/hx_bits.dart';
 import '../widgets/hx_refresh.dart';
+import '../widgets/hx_transitions.dart';
 import '../widgets/machine_sheets.dart';
 import '../widgets/status_motion.dart';
 
@@ -186,14 +186,10 @@ class _MachinesScreenState extends ConsumerState<MachinesScreen> {
         Expanded(
           child: SafeArea(
             bottom: false,
-            // The detail pane cross-fades when another machine is picked.
-            child: AnimatedSwitcher(
-              duration: HxMotion.d(context, HxMotion.stateChange, fade: true),
-              switchInCurve: HxMotion.standard,
-              child: KeyedSubtree(
-                key: ValueKey(picked.info.id),
-                child: _MachineDetail(entry: picked),
-              ),
+            // The detail pane fades through when another machine is picked.
+            child: HxFadeThrough(
+              id: picked.info.id,
+              child: _MachineDetail(entry: picked),
             ),
           ),
         ),
@@ -1102,16 +1098,15 @@ Future<void> reviewHostKey(
     if (s is Ready || s is Failed) changed.complete(null);
   });
   unawaited(session.start());
-  final messenger = ScaffoldMessenger.maybeOf(context);
   try {
     final hk = await changed.future.timeout(
       kProbeTimeout,
       onTimeout: () => null,
     );
     if (hk == null) {
-      messenger?.showSnackBar(
-        SnackBar(content: Text('Could not reach ${m.name} to compare the key.')),
-      );
+      if (context.mounted) {
+        showHxSnack(context, 'Could not reach ${m.name} to compare the key.');
+      }
       return;
     }
     if (!context.mounted) return;

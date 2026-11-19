@@ -141,12 +141,15 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         const SizedBox(height: 16),
         Text('HyperOx', style: HxType.display),
         const SizedBox(height: 8),
-        if (_error != null)
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 328),
-            child: HxBanner(title: "Sign-in didn't finish", message: _error!),
-          )
-        else if (tagline)
+        HxBannerSlot(
+          child: _error == null
+              ? null
+              : ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 328),
+                  child: HxBanner(title: "Sign-in didn't finish", message: _error!),
+                ),
+        ),
+        if (_error == null && tagline)
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 288),
             child: Text(

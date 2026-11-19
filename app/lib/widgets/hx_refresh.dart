@@ -65,16 +65,18 @@ class _HxRefreshState extends State<HxRefresh> {
 
   Future<void> _run() async {
     setState(() => _refreshing = true);
+    Object? failure;
     try {
       await widget.onRefresh();
-    } finally {
-      if (mounted) {
-        setState(() {
-          _refreshing = false;
-          _pull = 0;
-        });
-      }
+    } catch (e) {
+      failure = e;
     }
+    if (!mounted) return;
+    setState(() {
+      _refreshing = false;
+      _pull = 0;
+    });
+    if (failure != null) showHxSnack(context, 'Could not refresh. Try again.');
   }
 
   @override

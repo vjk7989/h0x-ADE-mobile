@@ -83,7 +83,7 @@ void main() {
         body: Builder(
           builder: (context) => Center(
             child: TextButton(
-              onPressed: () => showHxSnack(context, const SnackBar(content: Text('Saved'))),
+              onPressed: () => showHxSnack(context, 'Saved', actionLabel: 'Undo'),
               child: const Text('Save'),
             ),
           ),
@@ -102,7 +102,7 @@ void main() {
   });
 
   group('theme switch', () {
-    testWidgets('golden: paper to darkmatter fades over 250 ms', (t) async {
+    testWidgets('golden: paper to darkmatter, a circle reveal over 400 ms', (t) async {
       t.view.physicalSize = Frame.phone.size;
       t.view.devicePixelRatio = 1;
       addTearDown(t.view.reset);
@@ -110,17 +110,17 @@ void main() {
       await t.pumpWidget(_themed('darkmatter'));
       await _expectImage(
         t,
-        await strip(t, times: const [0, 125, 250], scale: 0.5),
+        await strip(t, times: const [0, 100, 200, 300, 400], scale: 0.4),
         'theme_switch_strip_light',
       );
       await t.pumpAndSettle();
     });
 
-    testWidgets('the old frame is gone after 250 ms and no ticker is left', (t) async {
+    testWidgets('the old frame is gone after 400 ms and no ticker is left', (t) async {
       await t.pumpWidget(_themed('paper'));
       await t.pumpWidget(_themed('darkmatter'));
       expect(find.byType(RawImage), findsOneWidget);
-      await t.pump(const Duration(milliseconds: 300));
+      await t.pump(const Duration(milliseconds: 450));
       await t.pump();
       expect(find.byType(RawImage), findsNothing);
       expect(t.binding.transientCallbackCount, 0);

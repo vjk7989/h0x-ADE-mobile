@@ -272,6 +272,7 @@ enum HxBannerKind { error, info, offline, warn }
 
 /// A strip announced to the screen reader as it appears. Text stays
 /// `foreground`; the state colour is on the icon and the edge (tokens rule 3).
+/// It grows in by itself; to animate it out too, put it in an [HxBannerSlot].
 class HxBanner extends StatelessWidget {
   const HxBanner({
     super.key,
@@ -303,24 +304,21 @@ class HxBanner extends StatelessWidget {
       HxBannerKind.warn => 'triangle',
     };
     // It grows in with a fade and an 8 dp slide down (200 ms, emphasized
-    // decel); with reduced motion it is simply there.
+    // decel), clipped while it grows; with reduced motion it is simply there.
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
       duration: HxMotion.d(context, HxMotion.stateChange, fade: true),
       curve: HxMotion.emphasizedDecel,
       builder: (context, t, child) => Opacity(
         opacity: t.clamp(0.0, 1.0),
-        child: Align(
-          heightFactor: t.clamp(0.0, 1.0),
-          alignment: Alignment.topCenter,
-          child: Transform.translate(offset: Offset(0, -8 * (1 - t)), child: child),
+        child: ClipRect(
+          child: Align(
+            heightFactor: t.clamp(0.0, 1.0),
+            alignment: Alignment.topCenter,
+            child: Transform.translate(offset: Offset(0, -8 * (1 - t)), child: child),
+          ),
         ),
       ),
-      child: Semantics(
-      liveRegion: true,
-      container: true,
-      label: '$title. $message',
-      excludeSemantics: true,
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -331,41 +329,184 @@ class HxBanner extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            HxIcon(icon, color: tone, size: 20),
-            const SizedBox(width: 10),
+            // The text reads as one label; the trailing widget keeps its own.
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: HxType.bodyLg.copyWith(fontSize: 14)),
-                  const SizedBox(height: 2),
-                  Text(message, style: HxType.caption),
-                ],
+              child: Semantics(
+                liveRegion: true,
+                container: true,
+                label: '$title. $message',
+                excludeSemantics: true,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    HxIcon(icon, color: tone, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(title, style: HxType.bodyLg.copyWith(fontSize: 14)),
+                          const SizedBox(height: 2),
+                          Text(message, style: HxType.caption),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             if (trailing != null) ...[const SizedBox(width: 8), trailing!],
           ],
         ),
       ),
-      ),
     );
   }
 }
 
-/// A snackbar that comes in over 200 ms (emphasized decel) and leaves over
-/// 160 ms (emphasized accel).
+/// Holds a banner (with its padding) that comes and goes. While [child] is
+/// set it shows it; when [child] turns null the last one fades out and
+/// collapses over 160 ms (emphasized accel), in the same frame, so there is
+/// never a frame without it. With reduced motion it is gone at once.
+class HxBannerSlot extends StatefulWidget {
+  const HxBannerSlot({super.key, required this.child});
+
+  final Widget? child;
+
+  @override
+  State<HxBannerSlot> createState() => _HxBannerSlotState();
+}
+
+class _HxBannerSlotState extends State<HxBannerSlot> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 160),
+    value: 1,
+  );
+  Widget? _shown;
+
+  @override
+  void initState() {
+    super.initState();
+    _shown = widget.child;
+  }
+
+  @override
+  void didUpdateWidget(HxBannerSlot old) {
+    super.didUpdateWidget(old);
+    if (widget.child != null) {
+      _shown = widget.child;
+      _c.value = 1;
+    } else if (old.child != null && _shown != null) {
+      if (HxMotion.reduced(context)) {
+        _shown = null;
+      } else {
+        _c.reverse(from: 1).whenComplete(() {
+          if (mounted && widget.child == null) setState(() => _shown = null);
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = _shown;
+    if (shown == null) return const SizedBox.shrink();
+    if (widget.child != null) return shown;
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, child) {
+        final t = HxMotion.emphasizedAccel.transform(_c.value);
+        return Opacity(
+          opacity: t,
+          child: ClipRect(
+            child: Align(heightFactor: t, alignment: Alignment.topCenter, child: child),
+          ),
+        );
+      },
+      child: shown,
+    );
+  }
+}
+
+double _contrast(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  final hi = la > lb ? la : lb;
+  final lo = la > lb ? lb : la;
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/// The accent, moved toward white or black until it reads at 4.5:1 on
+/// [fill] (the inverse snackbar: `foreground` is the fill, so on a light
+/// theme it is dark and the accent is lightened, as the board's #8ab4ff).
+Color accentOnInverse(Color accent, Color fill) {
+  if (_contrast(accent, fill) >= 4.5) return accent;
+  final toward = fill.computeLuminance() < 0.4
+      ? const Color(0xFFFFFFFF)
+      : const Color(0xFF000000);
+  for (var i = 1; i <= 20; i++) {
+    final c = Color.lerp(accent, toward, i / 20)!;
+    if (_contrast(c, fill) >= 4.5) return c;
+  }
+  return toward;
+}
+
+/// The one snackbar of the app: floating and inverse (`foreground` fill,
+/// `screen` text), 16 dp side margins, radius 12, 56 dp tall, [bottom] dp
+/// above the bottom (12 above the navigation; the agent screen lifts it above
+/// compose and the key bar). It comes in over 200 ms (emphasized decel) and
+/// leaves over 160 ms (emphasized accel). The action is the accent moved
+/// until it reads at 4.5:1.
 ScaffoldFeatureController<SnackBar, SnackBarClosedReason> showHxSnack(
   BuildContext context,
-  SnackBar bar,
-) => ScaffoldMessenger.of(context).showSnackBar(
-  bar,
-  snackBarAnimationStyle: AnimationStyle(
-    duration: HxMotion.d(context, HxMotion.stateChange, fade: true),
-    reverseDuration: HxMotion.d(context, const Duration(milliseconds: 160), fade: true),
-    curve: HxMotion.emphasizedDecel,
-    reverseCurve: HxMotion.emphasizedAccel,
-  ),
-);
+  Object message, {
+  String? actionLabel,
+  VoidCallback? onAction,
+  Duration duration = const Duration(seconds: 4),
+  double bottom = 12,
+}) {
+  final c = context.hx.colors;
+  final m = ScaffoldMessenger.of(context);
+  return m.showSnackBar(
+    // A ready-made SnackBar is only taken for the animation (tests); the app
+    // passes text.
+    message is SnackBar ? message : SnackBar(
+      behavior: SnackBarBehavior.floating,
+      backgroundColor: c.foreground,
+      margin: EdgeInsets.fromLTRB(16, 0, 16, bottom),
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      content: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 56),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text('$message', style: HxType.body.copyWith(color: c.screen, fontSize: 13.5)),
+        ),
+      ),
+      action: actionLabel == null
+          ? null
+          : SnackBarAction(
+              label: actionLabel,
+              textColor: accentOnInverse(c.accent, c.foreground),
+              onPressed: onAction ?? () {},
+            ),
+      persist: false,
+      duration: duration,
+    ),
+    snackBarAnimationStyle: AnimationStyle(
+      duration: HxMotion.d(context, HxMotion.stateChange, fade: true),
+      reverseDuration: HxMotion.d(context, const Duration(milliseconds: 160), fade: true),
+      curve: HxMotion.emphasizedDecel,
+      reverseCurve: HxMotion.emphasizedAccel,
+    ),
+  );
+}
 
 /// `[word]` as the desktop's CLI tags: brackets in `dim`, word in [color].
 class HxTag extends StatelessWidget {
