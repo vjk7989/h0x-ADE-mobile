@@ -167,9 +167,8 @@ class AgentController extends ChangeNotifier {
     final v = _view;
     _view = null;
     if (v != null) {
-      try {
-        await v.close();
-      } catch (_) {}
+      // Not awaited: a transport may take long to answer a close.
+      unawaited(v.close().catchError((Object _) {}));
     }
   }
 

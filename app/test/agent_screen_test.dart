@@ -8,6 +8,7 @@ import 'package:hyperox/conn/machine_connection.dart';
 import 'package:hyperox/screens/agent_screen.dart';
 import 'package:hyperox/state/agent_session.dart';
 import 'package:hyperox/theme/theme_controller.dart';
+import 'package:hyperox/theme/themes.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -396,6 +397,7 @@ void main() {
         ProviderScope(
           overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
           child: MaterialApp(
+            theme: themeData(themeById('paper')),
             home: AgentScreen(
               machineId: 'fake',
               terminal: 't1',

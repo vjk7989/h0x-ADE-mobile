@@ -39,6 +39,11 @@ Color? backgroundBehind(Element element) {
       exempt = true;
       return false;
     }
+    // A disabled control (semantics enabled: false) is WCAG-exempt.
+    if (w is Semantics && w.properties.enabled == false) {
+      exempt = true;
+      return false;
+    }
     Color? fill;
     if (w is DecoratedBox) {
       final d = w.decoration;
@@ -87,7 +92,11 @@ List<String> textContrastFailures(WidgetTester tester) {
           final fg = Color.alphaBlend(color, bg);
           final size = style.fontSize ?? 14;
           final bold = (style.fontWeight?.value ?? 400) >= 700;
-          final need = size >= 24 || (size >= 18.66 && bold) ? 3.0 : 4.5;
+          // Icons (an Icon is a one-glyph RichText) need 3:1, like large text.
+          final isIcon = element.findAncestorWidgetOfExactType<Icon>() != null;
+          final need = isIcon || size >= 24 || (size >= 18.66 && bold)
+              ? 3.0
+              : 4.5;
           final ratio = contrastRatio(fg, bg);
           if (ratio < need) {
             out.add(
