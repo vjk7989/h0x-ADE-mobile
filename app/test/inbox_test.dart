@@ -445,7 +445,8 @@ void main() {
       await t.pump(const Duration(milliseconds: 40));
       await t.pump(const Duration(milliseconds: 160));
       await expectGolden(find.byType(MaterialApp), 'inbox_pressed_light');
-      await g.up();
+      // Cancel, not up: releasing would open the agent.
+      await g.cancel();
       await t.pumpAndSettle();
     });
 
