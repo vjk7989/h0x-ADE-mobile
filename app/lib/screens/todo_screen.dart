@@ -393,7 +393,7 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
         _Banner(
           title: '${conn.machine.name} is offline',
           text: 'Read-only copy from the last sync. Ticks and edits wait until it is back.',
-          kind: HxBannerKind.info,
+          kind: HxBannerKind.offline,
         ),
       if (doc != null && doc.readOnly)
         _Banner(
