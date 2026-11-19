@@ -104,7 +104,13 @@ void main() {
       t.platformDispatcher.defaultRouteNameTestValue = '/m/studio';
       addTearDown(t.platformDispatcher.clearDefaultRouteNameTestValue);
       expect(HxIntro.shouldShow, isFalse);
-      await t.pumpWidget(const MaterialApp(home: IntroGate(child: _App())));
+      // No MaterialApp: it would try to open the deep link as a route.
+      await t.pumpWidget(
+        const Directionality(
+          textDirection: TextDirection.ltr,
+          child: MediaQuery(data: MediaQueryData(), child: IntroGate(child: SizedBox())),
+        ),
+      );
       expect(find.byType(HxIntro), findsNothing);
     });
 
