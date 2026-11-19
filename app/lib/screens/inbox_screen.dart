@@ -467,8 +467,9 @@ class AgentRow extends StatelessWidget {
                 CustomSemanticsAction(label: item.pinned ? 'Unpin' : 'Pin'): onPin,
                 if (markRead != null) const CustomSemanticsAction(label: 'Mark read'): markRead,
               },
-              child: InkWell(
-                borderRadius: BorderRadius.circular(18),
+              child: HxPressable(
+                radius: 18,
+                scale: false,
                 onTap: onOpen,
                 onLongPress: markRead == null ? onPin : () => _menu(context),
                 child: ConstrainedBox(

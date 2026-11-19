@@ -1,4 +1,7 @@
-import 'package:flutter/rendering.dart' show debugDisableShadows;
+import 'dart:ui' as ui;
+
+import 'package:flutter/rendering.dart'
+    show OffsetLayer, RenderObject, debugDisableShadows;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
@@ -51,6 +54,7 @@ Future<void> pumpGolden(
   double dpr = 1.0,
   bool settle = true,
   bool insets = true,
+  int frames = 6,
   Map<String, Object> stored = const {},
   List<Override> overrides = const [],
 }) async {
@@ -93,7 +97,8 @@ Future<void> pumpGolden(
     await tester.pumpAndSettle();
   } else {
     // A live terminal animates for ever (cursor): frames by hand.
-    for (var i = 0; i < 6; i++) {
+    if (frames == 0) await tester.pump();
+    for (var i = 0; i < frames; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
   }
@@ -158,4 +163,49 @@ Future<void> pumpShellGolden(
   for (var i = 0; i < 6; i++) {
     await tester.pump(const Duration(milliseconds: 100));
   }
+}
+
+/// Frames of an animation as one image, left to right (design/tokens.md
+/// section 18 strips). Pumps to each of [times] (cumulative, from now), takes
+/// a picture of the app, and lays the pictures out at [scale]. Compare the
+/// result with `expectLater(image, matchesGoldenFile(...))`.
+Future<ui.Image> strip(
+  WidgetTester tester, {
+  required List<int> times,
+  double scale = 0.5,
+}) async {
+  final frames = <ui.Image>[];
+  var at = 0;
+  for (final ms in times) {
+    if (ms > at) await tester.pump(Duration(milliseconds: ms - at));
+    at = ms;
+    RenderObject ro = tester.renderObject(find.byType(MaterialApp));
+    while (!ro.isRepaintBoundary) {
+      ro = ro.parent!;
+    }
+    final layer = ro.debugLayer! as OffsetLayer;
+    final shot = await tester.runAsync(() => layer.toImage(ro.paintBounds));
+    frames.add(shot!);
+  }
+  final w = frames.first.width * scale;
+  final h = frames.first.height * scale;
+  const gap = 4.0;
+  final out = await tester.runAsync(() async {
+    final rec = ui.PictureRecorder();
+    final canvas = Canvas(rec);
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, frames.length * (w + gap), h),
+      Paint()..color = const Color(0xFF808080),
+    );
+    for (var i = 0; i < frames.length; i++) {
+      canvas.drawImageRect(
+        frames[i],
+        Rect.fromLTWH(0, 0, frames[i].width.toDouble(), frames[i].height.toDouble()),
+        Rect.fromLTWH(i * (w + gap), 0, w, h),
+        Paint()..filterQuality = FilterQuality.medium,
+      );
+    }
+    return rec.endRecording().toImage((frames.length * (w + gap)).ceil(), h.ceil());
+  });
+  return out!;
 }

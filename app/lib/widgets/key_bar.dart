@@ -1,10 +1,13 @@
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:material_ui/material_ui.dart' hide Icon, Key;
 
 import 'hx_icon_compat.dart';
 import '../conn/machine_connection.dart';
 import '../state/key_input.dart';
+import '../theme/motion.dart';
 import '../theme/themes.dart';
 import '../theme/type.dart';
+import 'hx.dart';
 
 class _K {
   const _K(this.label, this.key, {this.speak, this.wide = false});
@@ -124,7 +127,6 @@ class KeyBar extends StatelessWidget {
     double capH,
     double targetH,
   ) {
-    final c = context.hx.colors;
     final sticky = switch (k.label) {
       'Ctrl' => modifiers.ctrl,
       'Alt' => modifiers.alt,
@@ -133,12 +135,6 @@ class KeyBar extends StatelessWidget {
     final isMod = k.key == null;
     final locked = sticky == Sticky.locked;
     final once = sticky == Sticky.once;
-    final fill = locked
-        ? c.accent
-        : once
-        ? c.selected
-        : c.card;
-    final fg = locked ? c.accentForeground : c.foreground;
     final speak = k.speak ?? k.label;
     final label = !isMod
         ? 'Key $speak'
@@ -166,53 +162,15 @@ class KeyBar extends StatelessWidget {
           : '$label, unavailable: $disabledReason',
       excludeSemantics: true,
       onTap: tap,
-      child: InkWell(
+      child: _KeyCap(
+        label: k.label,
+        wide: k.wide,
+        capW: capW,
+        capH: capH,
+        targetH: targetH,
+        once: once,
+        locked: locked,
         onTap: enabled ? tap : null,
-        child: Container(
-          constraints: BoxConstraints(
-            minWidth: k.wide ? 56 : (capW + 8).clamp(48.0, 76.0),
-            minHeight: targetH,
-          ),
-          alignment: Alignment.center,
-          child: Container(
-            width: k.wide ? capW + 16 : capW,
-            height: capH,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: fill,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: once ? c.accent : c.hairline,
-                width: once ? 1.5 : 1,
-              ),
-            ),
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    child: Text(
-                      k.label,
-                      maxLines: 1,
-                      style: HxType.mono.copyWith(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: fg,
-                      ),
-                    ),
-                  ),
-                ),
-                if (locked)
-                  Positioned(
-                    bottom: 4,
-                    child: Container(width: 12, height: 2, color: fg),
-                  ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -231,22 +189,137 @@ class KeyBar extends StatelessWidget {
           : 'Key Enter, unavailable: $disabledReason',
       excludeSemantics: true,
       onTap: tap,
-      child: InkWell(
-        onTap: enabled ? tap : null,
-        child: Container(
-          constraints: BoxConstraints(minWidth: 64, minHeight: targetH),
-          alignment: Alignment.center,
-          child: Container(
-            width: 56,
-            height: capH,
-            decoration: BoxDecoration(
-              color: c.solid,
-              borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: 64,
+        height: targetH,
+        child: Center(
+          child: HxPressable(
+            radius: 8,
+            fill: c.solid,
+            layer: c.solidForeground,
+            onTap: enabled ? tap : null,
+            onPressedChanged: (down) {
+              if (down) HapticFeedback.selectionClick();
+            },
+            child: SizedBox(
+              width: 56,
+              height: capH,
+              child: Icon(
+                Icons.keyboard_return,
+                size: 20,
+                color: c.solidForeground,
+              ),
             ),
-            child: Icon(
-              Icons.keyboard_return,
-              size: 20,
-              color: c.solidForeground,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// One key of the bar: a 40 x 36 cap in a 48 dp target. While pressed the cap
+/// takes the `hover` fill and drops 1 dp for 60 ms, with a selection click.
+/// Ctrl and Alt animate between rest, one-shot and locked in 120 ms.
+class _KeyCap extends StatefulWidget {
+  const _KeyCap({
+    required this.label,
+    required this.wide,
+    required this.capW,
+    required this.capH,
+    required this.targetH,
+    required this.once,
+    required this.locked,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool wide;
+  final double capW;
+  final double capH;
+  final double targetH;
+  final bool once;
+  final bool locked;
+  final VoidCallback? onTap;
+
+  @override
+  State<_KeyCap> createState() => _KeyCapState();
+}
+
+class _KeyCapState extends State<_KeyCap> {
+  var _down = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.hx.colors;
+    final reduced = HxMotion.reduced(context);
+    final fill = _down
+        ? Color.alphaBlend(c.hover, c.card)
+        : widget.locked
+        ? c.accent
+        : widget.once
+        ? c.selected
+        : c.card;
+    final fg = widget.locked ? c.accentForeground : c.foreground;
+    final edge = widget.once ? c.accent : c.hairline;
+    final sticky = HxMotion.d(context, HxMotion.sticky, fade: true);
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        minWidth: widget.wide ? 56 : (widget.capW + 8).clamp(48.0, 76.0),
+        minHeight: widget.targetH,
+      ),
+      child: Center(
+        child: AnimatedContainer(
+          duration: reduced ? Duration.zero : HxMotion.keyPress,
+          curve: HxMotion.standard,
+          transform: Matrix4.translationValues(0, _down && !reduced ? 1 : 0, 0),
+          child: HxPressable(
+            radius: 8,
+            scale: false,
+            layer: fg,
+            onTap: widget.onTap,
+            onPressedChanged: (down) {
+              setState(() => _down = down);
+              if (down) HapticFeedback.selectionClick();
+            },
+            child: AnimatedContainer(
+              duration: sticky,
+              curve: HxMotion.standard,
+              width: widget.wide ? widget.capW + 16 : widget.capW,
+              height: widget.capH,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: fill,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: edge,
+                  width: widget.once ? 1.5 : 1,
+                ),
+              ),
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 2),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        widget.label,
+                        maxLines: 1,
+                        style: HxType.mono.copyWith(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: fg,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (widget.locked)
+                    Positioned(
+                      bottom: 4,
+                      child: Container(width: 12, height: 2, color: fg),
+                    ),
+                ],
+              ),
             ),
           ),
         ),

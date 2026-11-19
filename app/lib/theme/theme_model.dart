@@ -57,6 +57,7 @@ class HxColors {
       popover = parseHex(r['popover']!),
       chrome = parseHex(r['chrome']!),
       border = parseHex(r['border']!),
+      hover = parseHex(r['hover']!),
       accent = parseHex(r['accent']!),
       accentForeground = parseHex(r['accent_foreground']!),
       solid = parseHex(r['solid']!),
@@ -82,6 +83,7 @@ class HxColors {
   final Color popover;
   final Color chrome;
   final Color border;
+  final Color hover;
   final Color accent;
   final Color accentForeground;
   final Color solid;
