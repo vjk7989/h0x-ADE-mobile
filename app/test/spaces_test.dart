@@ -86,7 +86,7 @@ void main() {
     expect(find.text('No tabs: start an agent to open one'), findsOneWidget);
   });
 
-  testWidgets('a pane opens its terminal; an exited pane does not', (t) async {
+  testWidgets('a pane opens its terminal, an exited one too (read-only scrollback)', (t) async {
     String? opened;
     await show(t, [studio()], onOpen: (m, term) => opened = '${m.id}/$term');
     await t.tap(find.text('shell'));
@@ -94,7 +94,7 @@ void main() {
     opened = null;
     await t.ensureVisible(find.text('old'));
     await t.tap(find.text('old'));
-    expect(opened, isNull);
+    expect(opened, 'studio/t-old');
   });
 
   testWidgets('Start agent: slots, confirm dialog, then it runs once', (t) async {

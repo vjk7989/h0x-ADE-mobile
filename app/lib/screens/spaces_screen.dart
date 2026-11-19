@@ -511,10 +511,11 @@ class _TabRow extends StatelessWidget {
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(children: [
-            Icon(Icons.dashboard_outlined, size: 18, color: c.muted),
+            Icon(Icons.dashboard_outlined, size: 18, color: selected ? c.foreground : c.muted),
             const SizedBox(width: 8),
             Expanded(child: Text(name, style: HxType.body)),
-            Text('$panes pane${panes == 1 ? '' : 's'}', style: HxType.mono.copyWith(color: c.muted)),
+            Text('$panes pane${panes == 1 ? '' : 's'}',
+                style: HxType.mono.copyWith(color: selected ? c.foreground : c.muted)),
           ]),
         ),
       ),
