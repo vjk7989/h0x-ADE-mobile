@@ -322,6 +322,45 @@ void main() {
       await expectAccessible(t);
     });
 
+    // Board states, one golden each (design inbox 04, 05, 06, 08, 10). The
+    // swipe actions of inbox 09 are not built: rows have no swipe.
+    testWidgets('golden: empty (no machines), light', (t) async {
+      await pumpGolden(t, InboxScreen(onNavigate: (_) {}), overrides: overrides([]));
+      await expectGolden(find.byType(MaterialApp), 'inbox_empty_light');
+    });
+
+    testWidgets('golden: loading, dark', (t) async {
+      final a = studio()..setState(const Connecting());
+      await pumpGolden(
+        t,
+        InboxScreen(onNavigate: (_) {}),
+        brightness: Brightness.dark,
+        overrides: overrides([a]),
+      );
+      await expectGolden(find.byType(MaterialApp), 'inbox_loading_dark');
+    });
+
+    testWidgets('golden: all machines offline, light', (t) async {
+      final a = studio();
+      await show(t, [a]);
+      a.setState(const Failed('lost'));
+      await t.pumpAndSettle();
+      await expectGolden(find.byType(MaterialApp), 'inbox_offline_light');
+    });
+
+    testWidgets('golden: search for "claude", dark', (t) async {
+      await show(t, [studio(), devbox()], b: Brightness.dark);
+      await t.enterText(find.byType(TextField), 'claude');
+      await t.pumpAndSettle();
+      await expectGolden(find.byType(MaterialApp), 'inbox_search_dark');
+    });
+
+    testWidgets('golden: one machine failed, banner and Retry, dark', (t) async {
+      final bad = devbox()..setState(const Failed('ssh: connect to host devbox port 22: timed out'));
+      await show(t, [studio(), bad], b: Brightness.dark);
+      await expectGolden(find.byType(MaterialApp), 'inbox_error_dark');
+    });
+
     testWidgets('golden: tablet shows the rail and a list beside a pane', (t) async {
       await show(t, [studio(), devbox()], f: Frame.tablet);
       // The first agent that needs the person opens beside the list.

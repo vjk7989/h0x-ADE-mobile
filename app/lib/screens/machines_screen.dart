@@ -196,35 +196,64 @@ class _AddFab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.hx.colors;
+    final r = BorderRadius.circular(18);
     return Semantics(
       button: true,
       label: 'Add machine',
       excludeSemantics: true,
       onTap: onTap,
-      child: Material(
-        color: c.solid,
-        borderRadius: BorderRadius.circular(18),
-        elevation: 4,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: onTap,
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(minHeight: 56, minWidth: 56),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.add, color: c.solidForeground),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Add machine',
-                    style: HxType.bodyLg.copyWith(color: c.solidForeground),
+      // A blurred shadow (black 25 %, y +8, blur 8), no border, and a 1 px
+      // white 22 % highlight along the top, inset 16 dp (tokens section 8).
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: c.solid,
+          borderRadius: r,
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF000000).withValues(alpha: 0.25),
+              blurRadius: 8,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                borderRadius: r,
+                onTap: onTap,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 56, minWidth: 56),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.add, color: c.solidForeground),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Add machine',
+                          style: HxType.bodyLg.copyWith(color: c.solidForeground),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
+                ),
               ),
             ),
-          ),
+            Positioned(
+              top: 0,
+              left: 16,
+              right: 16,
+              height: 1,
+              child: IgnorePointer(
+                child: ColoredBox(
+                  color: const Color(0xFFFFFFFF).withValues(alpha: 0.22),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

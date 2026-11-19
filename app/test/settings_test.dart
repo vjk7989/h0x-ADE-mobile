@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hyperox/auth/app_lock.dart';
 import 'package:hyperox/conn/machine_connection.dart';
 import 'package:hyperox/screens/settings_screen.dart';
+import 'package:hyperox/screens/theme_picker_screen.dart';
 import 'package:hyperox/state/connections.dart';
 import 'package:hyperox/state/inbox.dart';
 import 'package:hyperox/state/ssh.dart';
@@ -215,6 +216,34 @@ void main() {
     await scrollTo(t, find.text('devbox:22'));
     await expectGolden(find.byType(MaterialApp), 'settings_phone_dark_key');
     await expectAccessible(t);
+  });
+
+  // Board states (design settings 06 and 10). Not built, so no golden:
+  // 11 (Android blocks notifications: needs an OS permission check) and the
+  // preview pane of 10 (a live preview drawn in the selected theme).
+  testWidgets('golden: regenerate confirm, dark', (t) async {
+    final sk = nacl.SigningKey.fromSeed(Uint8List.fromList(List.filled(32, 7)));
+    secrets.map['hyperox.ssh.key.v1'] = OpenSSHEd25519KeyPair(
+      Uint8List.fromList(sk.verifyKey.asTypedList),
+      Uint8List.fromList(sk.asTypedList),
+      'hyperox-phone',
+    ).toPem();
+    await show(t, b: Brightness.dark);
+    await scrollTo(t, find.text('Regenerate key…'));
+    await t.tap(find.text('Regenerate key…'));
+    await t.pumpAndSettle();
+    expect(find.text("Regenerate this phone's key?"), findsOneWidget);
+    await expectGolden(find.byType(MaterialApp), 'settings_regen_dark');
+  });
+
+  testWidgets('golden: the theme picker on a tablet, dark', (t) async {
+    await pumpGolden(
+      t,
+      const ThemePickerScreen(),
+      frame: Frame.tablet,
+      brightness: Brightness.dark,
+    );
+    await expectGolden(find.byType(MaterialApp), 'theme_picker_tablet_dark');
   });
 
   testWidgets('golden: text 200 percent, accessible', (t) async {

@@ -185,6 +185,45 @@ void main() {
     });
   });
 
+  group('SignInScreen footer', () {
+    testWidgets('Terms and Privacy open their pages (account mode)', (tester) async {
+      final opened = <Uri>[];
+      await pumpGolden(
+        tester,
+        const SignInScreen(accountMode: true),
+        overrides: [
+          urlOpenerProvider.overrideWithValue((u) async {
+            opened.add(u);
+            return true;
+          }),
+        ],
+      );
+      await tester.tap(find.text('Terms'));
+      await tester.tap(find.text('Privacy'));
+      expect(opened.map((u) => u.toString()), [
+        'https://pavii.tech/terms',
+        'https://pavii.tech/privacy',
+      ]);
+    });
+
+    testWidgets('the links are 48 dp targets', (tester) async {
+      await pumpGolden(tester, const SignInScreen(accountMode: true));
+      final handle = tester.ensureSemantics();
+      await tester.pump();
+      for (final label in ['Terms', 'Privacy']) {
+        final size = tester.getSize(find.bySemanticsLabel(label));
+        expect(size.height, greaterThanOrEqualTo(48), reason: label);
+      }
+      handle.dispose();
+    });
+
+    testWidgets('the SSH-only build shows no links', (tester) async {
+      await pumpGolden(tester, const SignInScreen());
+      expect(find.text('Terms'), findsNothing);
+      expect(find.text('Privacy'), findsNothing);
+    });
+  });
+
   group('AuthController', () {
     test('sign-out clears account keys and keeps SSH machines', () async {
       final auth = FakeAuth();
