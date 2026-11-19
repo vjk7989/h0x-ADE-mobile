@@ -24,3 +24,6 @@ node_modules/
 .idea/
 .vscode/
 .DS_Store
+
+# The shared public debug key is committed on purpose.
+!app/android/debug.keystore

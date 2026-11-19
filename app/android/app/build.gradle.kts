@@ -29,6 +29,18 @@ android {
         versionName = flutter.versionName
     }
 
+    // One fixed, public debug key for every build (CI and local), so each
+    // debug APK installs over the previous one. It is not a secret and is
+    // never used for a release (release signing is separate, M4.14).
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("../debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             // TODO: Add your own signing config for the release build.
