@@ -31,7 +31,7 @@ android {
 
     // One fixed, public debug key for every build (CI and local), so each
     // debug APK installs over the previous one. It is not a secret and is
-    // never used for a release (release signing is separate, M4.14).
+    // never used for a published release (see the release signingConfig).
     signingConfigs {
         getByName("debug") {
             storeFile = file("../debug.keystore")
@@ -39,13 +39,23 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        // Release key comes from the environment (CI tag builds). When it is
+        // not set, release falls back to the debug key so local and PR builds work.
+        val releaseKeystore = System.getenv("ANDROID_KEYSTORE_PATH")
+        if (!releaseKeystore.isNullOrEmpty()) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("release")
+                ?: signingConfigs.getByName("debug")
         }
     }
 }
