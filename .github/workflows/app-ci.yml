@@ -64,6 +64,8 @@ jobs:
         working-directory: app
     steps:
       - name: Require signing secrets
+        # Runs before checkout, so app/ does not exist yet.
+        working-directory: .
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
