@@ -108,7 +108,8 @@ Errors are `{error:{code,message}}` with status 400/401/403/404/409/429 (+`Retry
 ## 3.10 SSH transport (no cloud)
 - **Auth:**
   - dartssh2 with the phone's ed25519 key (private key in secure storage; the public OpenSSH line is shared by the user into `authorized_keys`);
-  - or Tailscale SSH (the tailnet authorises; the client offers `none`/no key).
+  - or Tailscale SSH (the tailnet authorises; the client offers `none`/no key). Tailscale SSH servers run only on Linux and macOS hosts, so the switch is for those computers only.
+  - Windows computer: use Windows OpenSSH Server with the phone's ed25519 key in `authorized_keys` (admin accounts: `C:\ProgramData\sshdministrators_authorized_keys`), reached by MagicDNS name or 100.x address.
   - Host key: TOFU per `host:port`, `SHA256:` fingerprint shown, mismatch = a blocking warning.
 - **Session:** an exec channel `h0x-core connect`. It must be on the PATH of a non-interactive SSH login: sh/bash on Unix, cmd.exe or PowerShell on Windows OpenSSH. The login must print nothing to stdout.
 - **Protocol:**

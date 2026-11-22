@@ -575,6 +575,7 @@ class _TailscaleSwitch extends StatelessWidget {
     return Semantics(
       toggled: value,
       label: 'Use Tailscale SSH, no key, ${value ? 'on' : 'off'}',
+      hint: 'Linux and macOS computers only',
       excludeSemantics: true,
       onTap: onChanged == null ? null : () => onChanged!(!value),
       child: HxCard(
@@ -584,7 +585,17 @@ class _TailscaleSwitch extends StatelessWidget {
           child: Row(
             children: [
               Expanded(
-                child: Text('Use Tailscale SSH (no key)', style: HxType.bodyLg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Use Tailscale SSH (no key)', style: HxType.bodyLg),
+                    Text(
+                      'Linux and macOS computers only',
+                      style: HxType.caption.copyWith(color: c.muted),
+                    ),
+                  ],
+                ),
               ),
               Switch(
                 value: value,

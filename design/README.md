@@ -42,7 +42,7 @@ The requirements from `plan-mobile.md` and `plan-mobile-tasks.md`, and where eac
   - The computer must have Settings › Remote › Allow my phone to connect switched on.
 - **SSH.**
   - Fields: host / IP / Tailscale name, user, and port.
-  - A "Use Tailscale SSH (no key)" switch.
+  - A "Use Tailscale SSH (no key)" switch. It works for Linux and macOS computers only; Tailscale SSH has no Windows server. For a Windows computer, leave it off, install the Windows OpenSSH Server, add this phone's key to `authorized_keys` (admin accounts: `C:\ProgramData\sshdministrators_authorized_keys`), and use the MagicDNS name or 100.x address as the host.
   - This phone's public key, with Copy and Share.
   - "Import from your account" brings in host / user / port shared by the desktop. A host that is also an account machine is never merged automatically.
 - **Phone link with per-phone approval.**
@@ -195,7 +195,7 @@ Every tappable element on every board, with the label TalkBack reads, its smalle
 | Host, IP or Tailscale name | text field | 328 × 48 |  | ssh, tablet, ssh-tailscale, ssh-invalid, first-hostkey, import |
 | User | text field | 212 × 48 |  | ssh, tablet, ssh-tailscale, ssh-invalid, first-hostkey, import |
 | Port | text field | 104 × 48 |  | ssh, tablet, ssh-tailscale, ssh-invalid, first-hostkey, import |
-| Use Tailscale SSH, no key, off | switch | 328 × 56 |  | ssh, tablet, ssh-invalid, first-hostkey, import |
+| Use Tailscale SSH, no key, off (Linux and macOS computers only) | switch | 328 × 56 |  | ssh, tablet, ssh-invalid, first-hostkey, import |
 | This phone's public key, ed25519, fingerprint SHA256 4mQe | text | 296 × 54 |  | ssh, tablet, ssh-invalid, first-hostkey, import |
 | Copy public key | button | 142 × 48 |  | ssh, tablet, ssh-invalid, first-hostkey, import |
 | Share public key | button | 142 × 48 |  | ssh, tablet, ssh-invalid, first-hostkey, import |
