@@ -35,15 +35,15 @@ void main() {
 
     test('application-cursor (SS3) arrows and home/end are keys, not Esc plus letters', () {
       expect(
-        names(keysFromOutput('OAOBOCOD')),
+        names(keysFromOutput('\x1bOA\x1bOB\x1bOC\x1bOD')),
         ['up', 'down', 'right', 'left'],
       );
-      expect(names(keysFromOutput('OHOF')), ['home', 'end']);
-      expect(names(keysFromOutput('OAx')), ['up', 'x']);
+      expect(names(keysFromOutput('\x1bOH\x1bOF')), ['home', 'end']);
+      expect(names(keysFromOutput('\x1bOAx')), ['up', 'x']);
     });
 
     test('Esc then a capital O with no cursor letter stays Esc and shift+o', () {
-      expect(names(keysFromOutput('Oz')), ['esc', 'shift+o', 'z']);
+      expect(names(keysFromOutput('\x1bOz')), ['esc', 'shift+o', 'z']);
     });
 
     test('an unknown escape sequence is dropped whole', () {
