@@ -56,7 +56,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _createKey() async {
-    final r = await ref.read(sshKeysProvider).ensure();
+    final KeyResult r;
+    try {
+      r = await ref.read(sshKeysProvider).ensure();
+    } on StateError catch (e) {
+      // A storage read error: say so, and never make a new key over it.
+      if (mounted) showHxSnack(context, e.message);
+      return;
+    }
     if (mounted) setState(() => _key = r);
   }
 

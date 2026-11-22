@@ -310,9 +310,13 @@ class FakeSshTransport implements SshTransport {
 /// A SecretStore in memory.
 class MemSecrets implements SecretStore {
   final map = <String, String>{};
+  bool throwOnRead = false;
 
   @override
-  Future<String?> read(String key) async => map[key];
+  Future<String?> read(String key) async {
+    if (throwOnRead) throw StateError('keystore error');
+    return map[key];
+  }
 
   @override
   Future<void> write(String key, String value) async => map[key] = value;

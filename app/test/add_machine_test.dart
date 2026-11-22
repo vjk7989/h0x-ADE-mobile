@@ -462,6 +462,15 @@ void main() {
       expect(find.text('Core path (optional)'), findsOneWidget);
     });
 
+    testWidgets('a key read error is shown on the key card', (tester) async {
+      await pumpGolden(
+        tester,
+        const AddMachineScreen(),
+        overrides: [sshGatewayProvider.overrideWithValue(_NoKeyGateway())],
+      );
+      expect(find.textContaining("cannot read the phone's SSH key"), findsOneWidget);
+    });
+
     testWidgets('golden: the Advanced field open, light', (tester) async {
       await pumpGolden(
         tester,
@@ -690,4 +699,10 @@ void main() {
       await expectAccessible(tester);
     });
   });
+}
+
+class _NoKeyGateway extends FakeGateway {
+  @override
+  Future<PhoneKeyInfo> phoneKey() async =>
+      throw StateError("cannot read the phone's SSH key: boom; try again");
 }
