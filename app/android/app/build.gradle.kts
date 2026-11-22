@@ -74,7 +74,7 @@ android {
 // is copied by the Flutter plugin to library projects, which reject it.
 androidComponents {
     onVariants(selector().withBuildType("profile")) { variant ->
-        variant.applicationId.set(variant.applicationId.map { "$it.profile" })
+        variant.applicationId.set("tech.pavii.hyperox.profile")
     }
 }
 
