@@ -110,4 +110,16 @@ void main() {
       expect(() => panelUnb64(t), throwsA(isA<PanelE2eError>()));
     }
   });
+
+  test('a failed accept kills the channel', () {
+    final c = start();
+    expect(() => c.accept('{}', v['fp'] as String), throwsA(isA<PanelE2eError>()));
+    expect(() => c.accept(v['server_hello'] as String, v['fp'] as String), throwsA(isA<PanelE2eError>()));
+    expect(() => c.sealBytes([1]), throwsA(isA<PanelE2eError>()));
+  });
+
+  test('accept is one-shot', () {
+    final c = accepted();
+    expect(() => c.accept(v['server_hello'] as String, v['fp'] as String), throwsA(isA<PanelE2eError>()));
+  });
 }

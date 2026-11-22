@@ -166,6 +166,7 @@ class PanelChannel {
   Uint8List? _kRecv;
   int _sendCtr = 0;
   int _recvCtr = 0;
+  bool _dead = false;
 
   /// The text frame to send first.
   String get clientHello => _hello;
@@ -176,14 +177,23 @@ class PanelChannel {
   /// Checks the server hello against the pinned fingerprint and derives the
   /// keys. Throws [PanelFingerprintMismatch] when the key is not the pinned one.
   void accept(String serverHello, String pinnedFp) {
-    if (_kSend != null) throw const PanelE2eError('already accepted');
+    if (_dead || _kSend != null) throw const PanelE2eError('already accepted');
+    _dead = true;
+    _accept(serverHello, pinnedFp);
+    _dead = false;
+  }
+
+  void _accept(String serverHello, String pinnedFp) {
     Object? json;
     try {
       json = jsonDecode(serverHello);
     } on FormatException {
       throw const PanelE2eError('bad hello');
     }
-    if (json is! Map<String, dynamic> || json['v'] != 1) {
+    if (json is! Map<String, dynamic> ||
+        json['v'] is! int ||
+        json['v'] != 1 ||
+        _hasDuplicateKey(serverHello)) {
       throw const PanelE2eError('bad hello');
     }
     final sBytes = _field(json, 's', _pubLen);
@@ -217,6 +227,7 @@ class PanelChannel {
   Uint8List sealBytes(List<int> plain) {
     final key = _kSend;
     if (key == null) throw const PanelE2eError('not accepted');
+    if (_sendCtr == -1) throw const PanelE2eError('counter exhausted');
     final out = _gcm(true, key, _c2s, _sendCtr, Uint8List.fromList(plain));
     _sendCtr++;
     return out;
@@ -226,6 +237,7 @@ class PanelChannel {
   Uint8List openBytes(List<int> wire) {
     final key = _kRecv;
     if (key == null) throw const PanelE2eError('not accepted');
+    if (_recvCtr == -1) throw const PanelE2eError('counter exhausted');
     final out = _gcm(false, key, _s2c, _recvCtr, Uint8List.fromList(wire));
     _recvCtr++;
     return out;
@@ -261,6 +273,37 @@ Uint8List _gcm(bool seal, Uint8List key, int dir, int ctr, Uint8List data) {
   } on ArgumentError {
     throw PanelE2eError(seal ? 'seal failed' : 'open failed');
   }
+}
+
+/// True when the top-level object repeats a key (serde rejects that; Dart's
+/// jsonDecode keeps the last one). Input is already valid JSON.
+bool _hasDuplicateKey(String text) {
+  final seen = <String>{};
+  var depth = 0;
+  var expectKey = false;
+  for (var i = 0; i < text.length; i++) {
+    final c = text[i];
+    if (c == '"') {
+      final start = i;
+      for (i++; text[i] != '"'; i++) {
+        if (text[i] == '\\') i++;
+      }
+      if (depth == 1 && expectKey) {
+        if (!seen.add(jsonDecode(text.substring(start, i + 1)) as String)) {
+          return true;
+        }
+        expectKey = false;
+      }
+    } else if (c == '{' || c == '[') {
+      depth++;
+      expectKey = depth == 1 && c == '{';
+    } else if (c == '}' || c == ']') {
+      depth--;
+    } else if (c == ',' && depth == 1) {
+      expectKey = true;
+    }
+  }
+  return false;
 }
 
 bool _constantTimeEq(List<int> a, List<int> b) {
