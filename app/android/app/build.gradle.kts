@@ -52,14 +52,15 @@ android {
         }
     }
 
-    // Debug and profile builds carry the public debug key, so they get their
-    // own applicationId: they can never be installed over the real app.
+    // Debug builds carry the public debug key, so they get their own
+    // applicationId and can never be installed over the real app. Only the
+    // debug type: the Flutter plugin copies other types to library projects,
+    // which cannot set a suffix.
     buildTypes {
         debug {
             applicationIdSuffix = ".debug"
         }
         getByName("profile") {
-            applicationIdSuffix = ".profile"
             signingConfig = signingConfigs.getByName("debug")
         }
         release {
