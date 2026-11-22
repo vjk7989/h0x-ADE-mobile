@@ -39,8 +39,8 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
-        // Release key comes from the environment (CI tag builds). When it is
-        // not set, release falls back to the debug key so local and PR builds work.
+        // Release key comes from the environment (CI tag builds). There is no
+        // fallback to the debug key: a release build without it fails.
         val releaseKeystore = System.getenv("ANDROID_KEYSTORE_PATH")
         if (!releaseKeystore.isNullOrEmpty()) {
             create("release") {
@@ -52,11 +52,26 @@ android {
         }
     }
 
+    // Debug and profile builds carry the public debug key, so they get their
+    // own applicationId: they can never be installed over the real app.
     buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+        }
+        getByName("profile") {
+            applicationIdSuffix = ".profile"
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             signingConfig = signingConfigs.findByName("release")
-                ?: signingConfigs.getByName("debug")
         }
+    }
+}
+
+gradle.taskGraph.whenReady {
+    val releaseTask = allTasks.any { it.project == project && it.name.endsWith("Release") }
+    if (releaseTask && android.signingConfigs.findByName("release") == null) {
+        throw GradleException("Release build needs ANDROID_KEYSTORE_PATH and the signing env vars; the debug key is never used for release.")
     }
 }
 
