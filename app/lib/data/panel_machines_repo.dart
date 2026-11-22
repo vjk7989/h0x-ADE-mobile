@@ -83,17 +83,34 @@ class PanelMachinesController extends Notifier<List<PanelMachine>> {
     return out;
   }
 
-  /// Saves the secrets first, then the machine. False when the same panel
-  /// (base URL) is already paired.
-  Future<bool> add(PanelMachine m, PanelSecrets secrets) async {
-    if (state.any((o) => o.baseUrl == m.baseUrl)) return false;
-    final store = ref.read(secretStoreProvider);
-    await store.write(_tokenKey(m.id), secrets.token);
-    await store.write(_deviceKeyKey(m.id), secrets.deviceKey);
-    state = [...state, m];
-    await _save();
-    return true;
+  Future<void> _tail = Future.value();
+
+  /// Runs [job] after every earlier add/remove has finished.
+  Future<T> _serial<T>(Future<T> Function() job) {
+    final run = _tail.then((_) => job());
+    _tail = run.then((_) {}, onError: (Object _) {});
+    return run;
   }
+
+  /// Saves the secrets first, then the machine. False when the same panel
+  /// (base URL) is paired or the id is taken; nothing is written then. If a
+  /// write fails part-way, the secrets already written are deleted again.
+  Future<bool> add(PanelMachine m, PanelSecrets secrets) => _serial(() async {
+    if (state.any((o) => o.baseUrl == m.baseUrl || o.id == m.id)) return false;
+    final store = ref.read(secretStoreProvider);
+    final before = state;
+    try {
+      await store.write(_tokenKey(m.id), secrets.token);
+      await store.write(_deviceKeyKey(m.id), secrets.deviceKey);
+      state = [...state, m];
+      await _save();
+    } catch (_) {
+      state = before;
+      await _deleteSecrets(m.id).catchError((Object _) {});
+      rethrow;
+    }
+    return true;
+  });
 
   Future<void> rename(String id, String name) async {
     final n = name.trim();
@@ -102,13 +119,32 @@ class PanelMachinesController extends Notifier<List<PanelMachine>> {
     await _save();
   }
 
-  /// Removes the machine and its secrets.
-  Future<void> remove(String id) async {
+  /// Removes the machine and its secrets. The metadata is dropped even when a
+  /// secret delete fails; the first such error is rethrown afterwards.
+  Future<void> remove(String id) => _serial(() async {
+    Object? failure;
+    try {
+      await _deleteSecrets(id);
+    } catch (e) {
+      failure = e;
+    }
     state = [for (final m in state) if (m.id != id) m];
     await _save();
+    if (failure != null) throw failure;
+  });
+
+  /// Attempts both deletes; rethrows the first error after both ran.
+  Future<void> _deleteSecrets(String id) async {
     final store = ref.read(secretStoreProvider);
-    await store.delete(_tokenKey(id));
-    await store.delete(_deviceKeyKey(id));
+    Object? first;
+    for (final key in [_tokenKey(id), _deviceKeyKey(id)]) {
+      try {
+        await store.delete(key);
+      } catch (e) {
+        first ??= e;
+      }
+    }
+    if (first != null) throw first;
   }
 
   /// The secrets, or null when storage definitively has none. A read error is
