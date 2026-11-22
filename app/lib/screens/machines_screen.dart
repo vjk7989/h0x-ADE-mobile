@@ -11,6 +11,7 @@ import '../conn/machine_connection.dart';
 import '../conn/machine_directory.dart';
 import '../data/machine_status.dart';
 import '../data/ssh_gateway.dart';
+import '../data/panel_machines_repo.dart';
 import '../data/ssh_machines_repo.dart';
 import '../session_state.dart';
 import '../theme/themes.dart';
@@ -75,6 +76,7 @@ class _MachinesScreenState extends ConsumerState<MachinesScreen> {
     final entries = MachineDirectory.merge(
       cloud: ref.watch(cloudMachinesProvider),
       ssh: ref.watch(sshMachinesProvider),
+      panel: ref.watch(panelMachinesProvider),
       status: ref.watch(machineStatusProvider),
     );
     final account = [for (final e in entries) if (e.ssh == null) e];

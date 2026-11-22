@@ -9,6 +9,7 @@ import 'ssh.dart';
 /// The connections the screens use: one per saved machine, started here.
 /// Screens only see [MachineConnection]; tests override this with fakes.
 final connectionsProvider = Provider<List<MachineConnection>>((ref) {
+  // Paired panel machines are listed in Machines but not connected here yet.
   final machines = ref.watch(sshMachinesProvider);
   final keys = ref.watch(sshKeysProvider);
   final known = ref.watch(knownHostsProvider);
