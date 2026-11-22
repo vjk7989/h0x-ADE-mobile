@@ -89,6 +89,10 @@ class SshMachineConnection implements MachineConnection {
   final _pending = <String, Future<Reply> Function()>{};
   var _tokens = 0;
 
+  /// The prompt text each terminal last showed in [sessions], i.e. what the
+  /// person read before pressing Approve or Deny.
+  final _shown = <String, String>{};
+
   Completer<bool>? _decision;
   bool _decisionIsChange = false;
 
@@ -353,7 +357,13 @@ class SshMachineConnection implements MachineConnection {
   @override
   Future<List<Session>> sessions() async {
     final r = await (await _ready()).call('terminal.list') as Map;
-    return [for (final t in (r['terminals'] as List)) _toSession((t as Map).cast<String, dynamic>())];
+    final list = [
+      for (final t in (r['terminals'] as List)) _toSession((t as Map).cast<String, dynamic>())
+    ];
+    _shown
+      ..clear()
+      ..addEntries([for (final s in list) MapEntry(s.terminal, s.message)]);
+    return list;
   }
 
   @override
@@ -380,6 +390,10 @@ class SshMachineConnection implements MachineConnection {
       if (s.status != 'blocked' || s.blockedKind != 'permission') {
         final what = s.status == 'blocked' ? 'a ${s.blockedKind ?? 'blocked'} prompt' : s.status;
         return ReplyFailed('refused: only a blocked permission can be approved or denied (this is $what)');
+      }
+      final seen = _shown.remove(terminal);
+      if (seen != null && seen != s.message) {
+        return const ReplyFailed('the prompt changed, review it again');
       }
     } on CoreRpcException catch (e) {
       return ReplyFailed(e.message);

@@ -304,6 +304,26 @@ void main() {
       await c.close();
     });
 
+    test('approve is refused when the prompt changed since the list was shown', () async {
+      final c = await rig.up();
+      await c.sessions();
+      final st = rig.core.terminals['t2']!['status'] as Map;
+      st['msg'] = 'a different prompt';
+      final r = await c.approve('t2');
+      expect(r, isA<ReplyFailed>().having((f) => f.message, 'message', contains('prompt changed')));
+      expect(rig.core.calls.where((x) => x.startsWith('terminal.keys')), isEmpty);
+      await c.close();
+    });
+
+    test('approve after an unchanged list sends enter', () async {
+      final c = await rig.up();
+      await c.sessions();
+      expect(await c.approve('t2'), isA<Done>());
+      expect(rig.core.calls.where((x) => x.startsWith('terminal.keys')),
+          ['terminal.keys {"terminal":"t2","keys":["enter"]}']);
+      await c.close();
+    });
+
     test('approve on a question is refused and sends nothing', () async {
       final c = await rig.up();
       final r = await c.approve('t3');
