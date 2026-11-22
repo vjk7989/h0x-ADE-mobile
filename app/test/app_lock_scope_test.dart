@@ -1,4 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hyperox/auth/app_lock.dart';
 import 'package:hyperox/screens/unlock_screen.dart';
