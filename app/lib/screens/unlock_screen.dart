@@ -49,7 +49,18 @@ class _AppLockScopeState extends ConsumerState<AppLockScope>
     final locked = ref.watch(appLockProvider).locked;
     return Stack(
       children: [
-        widget.child,
+        // Kept alive (navigation state survives) but unreachable while locked,
+        // also for TalkBack: no semantics, no touches, not painted.
+        Offstage(
+          offstage: locked,
+          child: TickerMode(
+            enabled: !locked,
+            child: ExcludeSemantics(
+              excluding: locked,
+              child: AbsorbPointer(absorbing: locked, child: widget.child),
+            ),
+          ),
+        ),
         if (locked) const Positioned.fill(child: UnlockScreen()),
       ],
     );
