@@ -69,6 +69,15 @@ android {
     }
 }
 
+// Profile builds are also signed with the debug key, so they get their own
+// applicationId too. Set per variant in this module only: a build-type suffix
+// is copied by the Flutter plugin to library projects, which reject it.
+androidComponents {
+    onVariants(selector().withBuildType("profile")) { variant ->
+        variant.applicationId.set(variant.applicationId.map { "$it.profile" })
+    }
+}
+
 gradle.taskGraph.whenReady {
     val releaseTask = allTasks.any { it.project == project && it.name.endsWith("Release") }
     if (releaseTask && android.signingConfigs.findByName("release") == null) {
