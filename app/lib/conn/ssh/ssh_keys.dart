@@ -74,7 +74,7 @@ class SshKeys {
       try {
         return await _store.read(storeKey);
       } catch (e) {
-        throw StateError('Could not read the SSH key from secure storage: $e');
+        throw StateError("cannot read the phone's SSH key: $e; try again");
       }
     }
   }

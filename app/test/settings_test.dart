@@ -114,6 +114,17 @@ void main() {
     expect(secrets.map, isNotEmpty);
   });
 
+  testWidgets('no key yet: a storage read error is shown and no key is made', (t) async {
+    secrets.map['hyperox.ssh.key.v1'] = 'kept';
+    await show(t);
+    secrets.throwOnRead = true;
+    await scrollTo(t, find.text('Create key'));
+    await t.tap(find.text('Create key'));
+    await t.pumpAndSettle();
+    expect(find.textContaining("cannot read the phone's SSH key"), findsOneWidget);
+    expect(secrets.map['hyperox.ssh.key.v1'], 'kept');
+  });
+
   testWidgets('an existing key is shown without being replaced; Copy and Share send the line', (t) async {
     // make a key first, then open the screen again over the same storage
     await show(t);
