@@ -23,6 +23,19 @@ class MemStore implements SecretStore {
   Future<void> delete(String key) async => map.remove(key);
 }
 
+class FlakyStore extends MemStore {
+  int failNext = 0;
+
+  @override
+  Future<String?> read(String key) async {
+    if (failNext > 0) {
+      failNext--;
+      throw StateError('transient');
+    }
+    return super.read(key);
+  }
+}
+
 void main() {
   group('SshKeys', () {
     test('is generated once and then stable', () async {
@@ -86,6 +99,26 @@ void main() {
       final b = await keys.ensure();
       expect(b.addAgain, isTrue);
       expect(b.key.publicLine, isNot(a.key.publicLine));
+    });
+
+    test('a read error never overwrites the stored key', () async {
+      final store = MemStore();
+      final a = await SshKeys(store).ensure();
+      final pem = store.map[SshKeys.storeKey];
+      store.throwOnRead = true;
+      await expectLater(SshKeys(store).ensure(), throwsStateError);
+      expect(store.map[SshKeys.storeKey], pem);
+      store.throwOnRead = false;
+      expect((await SshKeys(store).ensure()).key.publicLine, a.key.publicLine);
+    });
+
+    test('a single transient read error is retried and the key is kept', () async {
+      final store = FlakyStore();
+      final a = await SshKeys(store).ensure();
+      store.failNext = 1;
+      final b = await SshKeys(store).ensure();
+      expect(b.addAgain, isFalse);
+      expect(b.key.publicLine, a.key.publicLine);
     });
 
     test('fingerprint matches ssh-keygen -l for a sample key', () {

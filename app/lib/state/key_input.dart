@@ -84,6 +84,15 @@ List<Key> keysFromOutput(String data) {
   while (i < runes.length) {
     final c = runes[i];
     if (c == 0x1b) {
+      if (i + 2 < runes.length &&
+          runes[i + 1] == 0x4f /* O */ &&
+          _csi.containsKey(String.fromCharCode(runes[i + 2]))) {
+        // SS3: ESC O <letter>, what the terminal view writes for arrows and
+        // Home/End once the remote program has set application-cursor mode.
+        keys.add(Key(_csi[String.fromCharCode(runes[i + 2])]!));
+        i += 3;
+        continue;
+      }
       if (i + 2 < runes.length && runes[i + 1] == 0x5b /* [ */) {
         // CSI: ESC [ <letter>  or  ESC [ <digit> ~
         final f = String.fromCharCode(runes[i + 2]);

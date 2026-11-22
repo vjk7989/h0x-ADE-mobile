@@ -65,13 +65,21 @@ class SshKeys {
   final SecretStore _store;
   final String device;
 
-  Future<PhoneKey?> _load() async {
-    final String? pem;
+  /// The stored PEM, or null when storage definitively has none. A read error
+  /// is retried once, then thrown: it must never look like "no key".
+  Future<String?> _readPem() async {
     try {
-      pem = await _store.read(storeKey);
+      return await _store.read(storeKey);
     } catch (_) {
-      return null; // keystore reset: the entry cannot be decrypted
+      try {
+        return await _store.read(storeKey);
+      } catch (e) {
+        throw StateError("cannot read the phone's SSH key: $e; try again");
+      }
     }
+  }
+
+  PhoneKey? _parse(String? pem) {
     if (pem == null) return null;
     try {
       final pairs = SSHKeyPair.fromPem(pem);
@@ -82,28 +90,29 @@ class SshKeys {
     }
   }
 
-  /// The stored key, or null when there is none (does not generate).
-  Future<PhoneKey?> existing() => _load();
+  /// The stored key, or null when there is none or it cannot be read (does not
+  /// generate, never writes).
+  Future<PhoneKey?> existing() async {
+    try {
+      return _parse(await _readPem());
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// The key, generated on first use. Idempotent: later calls return the same
-  /// key. [KeyResult.addAgain] is true only when a stored key was lost.
+  /// key. [KeyResult.addAgain] is true only when a stored key was lost (its
+  /// entry is there but unusable). A storage read error throws and keeps the
+  /// stored key.
   Future<KeyResult> ensure() async {
-    final have = await _load();
+    final pem = await _readPem();
+    final have = _parse(pem);
     if (have != null) return KeyResult(have, addAgain: false);
-    final lost = await _hadEntry();
-    return KeyResult(await _generate(), addAgain: lost);
+    return KeyResult(await _generate(), addAgain: pem != null);
   }
 
   /// A new key replaces the old one. The old public line stops working.
   Future<KeyResult> regenerate() async => KeyResult(await _generate(), addAgain: true);
-
-  Future<bool> _hadEntry() async {
-    try {
-      return await _store.read(storeKey) != null;
-    } catch (_) {
-      return true;
-    }
-  }
 
   Future<PhoneKey> _generate() async {
     final sk = nacl.SigningKey.generate();

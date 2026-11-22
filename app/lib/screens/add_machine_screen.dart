@@ -616,7 +616,7 @@ class _KeyCard extends StatelessWidget {
           style: HxType.body.copyWith(color: c.muted),
         ),
         error: (e, _) => Text(
-          'Could not create this phone\'s key: $e',
+          'Cannot use this phone\'s key: $e',
           style: HxType.body,
         ),
         data: (k) {
