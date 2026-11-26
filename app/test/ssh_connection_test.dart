@@ -293,7 +293,9 @@ void main() {
 
     test('approve on a permission sends enter, deny sends esc', () async {
       final c = await rig.up();
+      await c.sessions();
       expect(await c.approve('t2'), isA<Done>());
+      await c.sessions();
       expect(await c.deny('t2'), isA<Done>());
       expect(
           rig.core.calls.where((x) => x.startsWith('terminal.keys')),
@@ -311,6 +313,14 @@ void main() {
       st['msg'] = 'a different prompt';
       final r = await c.approve('t2');
       expect(r, isA<ReplyFailed>().having((f) => f.message, 'message', contains('prompt changed')));
+      expect(rig.core.calls.where((x) => x.startsWith('terminal.keys')), isEmpty);
+      await c.close();
+    });
+
+    test('approve is refused when no prompt was shown', () async {
+      final c = await rig.up();
+      final r = await c.approve('t2');
+      expect(r, isA<ReplyFailed>().having((f) => f.message, 'message', contains('review the prompt first')));
       expect(rig.core.calls.where((x) => x.startsWith('terminal.keys')), isEmpty);
       await c.close();
     });

@@ -28,6 +28,8 @@ dependencies:
   url_launcher: ^6.3.3
   web_socket_channel: ^3.0.3
   qr_flutter: ^4.1.0
+  # Camera QR scan for pairing with the computer's panel (ADR-116).
+  mobile_scanner: ^7.0.0
 
 dev_dependencies:
   flutter_test:

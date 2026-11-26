@@ -275,6 +275,14 @@ class _AddMachineScreenState extends ConsumerState<AddMachineScreen> {
                   child: HxBanner(title: _failure!.title, message: _failure!.hint),
                 ),
         ),
+        HxButton(
+          label: 'Scan QR from computer',
+          icon: Icons.qr_code_scanner,
+          onPressed: _connecting ? null : () => context.push('/machines/scan'),
+        ),
+        const SizedBox(height: 16),
+        Text('Or add it over SSH', style: HxType.caption.copyWith(color: c.muted)),
+        const SizedBox(height: 8),
         _Field(
           label: 'Host, IP or Tailscale name',
           hint: 'devbox.tail1234.ts.net',
