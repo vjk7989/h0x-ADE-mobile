@@ -9,6 +9,7 @@ import '../conn/panel/e2e.dart';
 import '../conn/panel/panel_connection.dart';
 import '../conn/panel/panel_link.dart';
 import '../data/panel_machines_repo.dart';
+import '../widgets/hx_icon_compat.dart';
 import '../theme/themes.dart';
 import '../theme/type.dart';
 import '../widgets/hx.dart';

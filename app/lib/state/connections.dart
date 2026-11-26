@@ -37,11 +37,17 @@ final connectionsProvider = Provider<List<MachineConnection>>((ref) {
     for (final m in panels)
       PanelMachineConnection(panel: m, secrets: () => panelRepo.secrets(m.id)),
   ];
-  for (final c in [...conns, ...panelConns]) {
+  for (final c in conns) {
+    c.start();
+  }
+  for (final c in panelConns) {
     c.start();
   }
   ref.onDispose(() {
-    for (final c in [...conns, ...panelConns]) {
+    for (final c in conns) {
+      c.close();
+    }
+    for (final c in panelConns) {
       c.close();
     }
   });

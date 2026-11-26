@@ -3,8 +3,16 @@ import 'package:hyperox/conn/machine_connection.dart';
 
 /// The suite every MachineConnection implementation passes. [make] returns a
 /// connection holding the fixture described on FakeConnection (t1 working,
-/// t2 blocked/permission, t3 blocked/question; read t1 = "hello t1").
-void connectionContract(String name, Future<MachineConnection> Function() make) {
+/// t2 blocked/permission, t3 blocked/question; read t1 = "hello t1"). A
+/// transport that cannot show a live terminal or reach files (the web panel)
+/// passes `terminalView: false` / `files: false`; those cases are then not
+/// part of its contract.
+void connectionContract(
+  String name,
+  Future<MachineConnection> Function() make, {
+  bool terminalView = true,
+  bool files = true,
+}) {
   group('contract: $name', () {
     late MachineConnection c;
     setUp(() async => c = await make());
