@@ -144,7 +144,7 @@ class FakePanel {
           return failed('only a blocked permission can be approved or denied');
         }
         if (d['cmd'] == 'approve' && d['prompt_sha256'] != promptSha256(t['msg'] as String)) {
-          return {'id': id, 'kind': 'prompt_changed'};
+          return {'id': id, 'kind': 'failed', 'message': 'prompt_changed: the prompt changed; review it again'};
         }
         return done(const {'text': 'sent'});
       case 'kill':

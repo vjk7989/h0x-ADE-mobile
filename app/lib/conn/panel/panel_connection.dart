@@ -438,7 +438,10 @@ class PanelMachineConnection implements MachineConnection {
       case 'prompt_changed':
         return const ReplyFailed(_promptChanged);
       case 'failed':
-        return ReplyFailed((d['message'] as String?) ?? 'failed');
+        // Core reports a changed prompt as a failure whose message starts with its kind.
+        final message = (d['message'] as String?) ?? 'failed';
+        if (message.startsWith('prompt_changed')) return const ReplyFailed(_promptChanged);
+        return ReplyFailed(message);
       default:
         return const ReplyFailed('unknown reply');
     }
