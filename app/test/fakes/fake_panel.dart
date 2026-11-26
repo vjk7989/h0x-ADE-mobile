@@ -30,6 +30,13 @@ class FakePanel {
   /// Nothing after the handshake is answered (a dead network).
   var mute = false;
 
+  /// When set, the next `sessions` answer is followed by this prompt text on
+  /// t2: the prompt swapped right after the phone looked.
+  String? swapPromptAfterSessions;
+
+  /// When positive, the server hello is this many characters of padding.
+  var helloPad = 0;
+
   String pairCode = 'CODE';
   final sessions = <String, Uint8List>{}; // session token -> device public key
   final tokens = <String>{};
@@ -118,7 +125,13 @@ class FakePanel {
     final t = terminals[d['terminal']];
     switch (d['cmd']) {
       case 'sessions':
-        return done({'sessions': [for (final x in terminals.values) x]});
+        final rows = [for (final x in terminals.values) {...x}];
+        final swap = swapPromptAfterSessions;
+        if (swap != null) {
+          terminals['t2']!['msg'] = swap;
+          swapPromptAfterSessions = null;
+        }
+        return done({'sessions': rows});
       case 'list':
         return done({'text': terminals.keys.join('\n')});
       case 'read':
@@ -129,6 +142,9 @@ class FakePanel {
         if (t == null) return failed('no such terminal: ${d['terminal']}');
         if (t['status'] != 'blocked' || t['kind'] != 'permission') {
           return failed('only a blocked permission can be approved or denied');
+        }
+        if (d['cmd'] == 'approve' && d['prompt_sha256'] != promptSha256(t['msg'] as String)) {
+          return {'id': id, 'kind': 'prompt_changed'};
         }
         return done(const {'text': 'sent'});
       case 'kill':
@@ -227,7 +243,7 @@ class FakePanelConn implements PanelSocket {
     hkdf.deriveKey(null, 0, okm, 0);
     _kRecv = okm.sublist(0, 32);
     _kSend = okm.sublist(32);
-    _out.add(serverHello);
+    _out.add(panel.helloPad > 0 ? 'x' * panel.helloPad : serverHello);
   }
 
   static Uint8List _gcm(bool seal, Uint8List key, int dir, int ctr, Uint8List data) {

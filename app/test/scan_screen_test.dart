@@ -21,10 +21,14 @@ import 'support/golden_expect.dart';
 
 class _Store implements SecretStore {
   final map = <String, String>{};
+  bool failWrites = false;
   @override
   Future<String?> read(String key) async => map[key];
   @override
-  Future<void> write(String key, String value) async => map[key] = value;
+  Future<void> write(String key, String value) async {
+    if (failWrites) throw StateError('disk full');
+    map[key] = value;
+  }
   @override
   Future<void> delete(String key) async => map.remove(key);
 }
@@ -286,6 +290,74 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Camera access is off'), findsNothing);
       expect(cam.built, 2);
+    });
+  });
+
+  group('confirm sheet warnings', () {
+    testWidgets('a Tailscale host shows its port and no warning', (tester) async {
+      final cam = _Cam();
+      await _pump(tester, cam);
+      await _scan(tester, cam, _link);
+      expect(find.text('pc.tail1234.ts.net'), findsOneWidget);
+      expect(find.text('Port 8377'), findsOneWidget);
+      expect(find.textContaining('Not a Tailscale address'), findsNothing);
+      expect(find.textContaining('security key changed'), findsNothing);
+    });
+
+    testWidgets('a host that is not *.ts.net warns', (tester) async {
+      final cam = _Cam();
+      await _pump(tester, cam);
+      await _scan(tester, cam, 'https://my-laptop.attacker.example/#pair=A&fp=B');
+      expect(
+        find.text('Not a Tailscale address — pair only on a network you trust'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Port'), findsNothing, reason: 'no explicit port');
+    });
+
+    testWidgets('a lookalike such as ts.net.evil.example still warns', (tester) async {
+      final cam = _Cam();
+      await _pump(tester, cam);
+      await _scan(tester, cam, 'https://pc.ts.net.evil.example/#pair=A&fp=B');
+      expect(find.textContaining('Not a Tailscale address'), findsOneWidget);
+    });
+
+    testWidgets('the same computer with another key says the key changed', (tester) async {
+      final cam = _Cam();
+      await _pump(tester, cam, stored: {
+        'panel.machines':
+            '[{"id":"old","name":"pc","baseUrl":"https://pc.tail1234.ts.net:8377","fp":"OLDFP"}]',
+      });
+      await _scan(tester, cam, _link);
+      expect(find.text("This computer's security key changed"), findsOneWidget);
+    });
+
+    testWidgets('the same computer with the same key does not', (tester) async {
+      final cam = _Cam();
+      await _pump(tester, cam, stored: {
+        'panel.machines':
+            '[{"id":"old","name":"pc","baseUrl":"https://pc.tail1234.ts.net:8377","fp":"K60P1hDZnq5EPpMqJhQryh5fqZW0UYRSgn547x8xf_A"}]',
+      });
+      await _scan(tester, cam, _link);
+      expect(find.textContaining('security key changed'), findsNothing);
+    });
+
+    testWidgets('a failed save keeps the old pairing and says so', (tester) async {
+      final cam = _Cam();
+      final (c, store) = await _pump(tester, cam, stored: {
+        'panel.machines':
+            '[{"id":"old","name":"pc","baseUrl":"https://pc.tail1234.ts.net:8377","fp":"OLDFP"}]',
+      });
+      store.map['hyperox.panel.old.token.v1'] = 'oldtok';
+      store.map['hyperox.panel.old.key.v1'] = 'oldkey';
+      store.failWrites = true;
+      await _scan(tester, cam, _link);
+      await tester.tap(find.text('Pair this phone'));
+      await tester.pumpAndSettle();
+      expect(find.text('Could not save the pairing'), findsOneWidget);
+      expect(find.text('Could not reach the computer'), findsNothing);
+      expect(c.read(panelMachinesProvider).single.id, 'old');
+      expect(store.map['hyperox.panel.old.token.v1'], 'oldtok');
     });
   });
 

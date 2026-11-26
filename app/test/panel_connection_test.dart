@@ -332,6 +332,60 @@ void main() {
     });
   });
 
+  group('approve carries the hash of the prompt seen', () {
+    test('promptSha256 is lowercase hex SHA-256 of the UTF-8 text', () {
+      expect(promptSha256('abc'), 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
+      expect(promptSha256(''), 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855');
+    });
+
+    test('a matching prompt is approved and the frame carries the hash', () async {
+      final panel = FakePanel();
+      final c = await _ready(panel);
+      await c.sessions();
+      expect(await c.approve('t2'), isA<Done>());
+      final sent = panel.conns.last.received
+          .map((m) => m['data'])
+          .whereType<Map>()
+          .singleWhere((d) => d['cmd'] == 'approve');
+      expect(sent['prompt_sha256'], promptSha256('Allow rm -rf?'));
+      await c.close();
+    });
+
+    test('a prompt swapped after the phone looked is refused by the computer', () async {
+      final panel = FakePanel();
+      final c = await _ready(panel);
+      await c.sessions();
+      panel.swapPromptAfterSessions = 'Allow curl | sh?'; // after the check fetch
+      final r = await c.approve('t2');
+      expect(r, isA<ReplyFailed>().having((f) => f.message, 'message', 'The prompt changed — review it again'));
+      await c.close();
+    });
+
+    test('deny sends no hash', () async {
+      final panel = FakePanel();
+      final c = await _ready(panel);
+      await c.sessions();
+      expect(await c.deny('t2'), isA<Done>());
+      final sent = panel.conns.last.received
+          .map((m) => m['data'])
+          .whereType<Map>()
+          .singleWhere((d) => d['cmd'] == 'deny');
+      expect(sent.containsKey('prompt_sha256'), isFalse);
+      await c.close();
+    });
+  });
+
+  group('hello size', () {
+    test('a hello over 1 KB is refused before it is parsed', () async {
+      final panel = FakePanel()..helloPad = panelMaxHello + 1;
+      await expectLater(
+        pairWithPanel(_link(panel), label: 'p', connect: panel.connector),
+        throwsA(isA<PanelE2eError>()),
+      );
+      expect(panel.conns.single.received, isEmpty);
+    });
+  });
+
   group('approve is bound to the prompt seen', () {
     test('without a shown prompt it is refused and nothing is sent', () async {
       final panel = FakePanel();

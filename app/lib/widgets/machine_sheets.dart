@@ -267,12 +267,24 @@ class PanelPairSheet extends StatelessWidget {
   const PanelPairSheet({
     super.key,
     required this.address,
+    this.port,
+    this.notTailscale = false,
+    this.keyChanged = false,
     required this.fingerprint,
     required this.onPair,
     required this.onCancel,
   });
 
   final String address;
+
+  /// Shown when the link names a port.
+  final int? port;
+
+  /// The host is not a `*.ts.net` name.
+  final bool notTailscale;
+
+  /// This computer is already paired, with a different key.
+  final bool keyChanged;
   final String fingerprint;
   final VoidCallback onPair;
   final VoidCallback onCancel;
@@ -292,6 +304,22 @@ class PanelPairSheet extends StatelessWidget {
               child: Text('Pair with this computer?', style: HxType.titleSm),
             ),
             Text(address, style: HxType.mono.copyWith(color: c.muted)),
+            if (port != null)
+              Text('Port $port', style: HxType.mono.copyWith(color: c.muted)),
+            if (keyChanged) ...[
+              const SizedBox(height: 8),
+              Text(
+                "This computer's security key changed",
+                style: HxType.bodyLg.copyWith(color: c.blocked),
+              ),
+            ],
+            if (notTailscale) ...[
+              const SizedBox(height: 8),
+              Text(
+                'Not a Tailscale address — pair only on a network you trust',
+                style: HxType.body.copyWith(color: c.blocked),
+              ),
+            ],
             const SizedBox(height: 12),
             Text(
               'This phone will see your agents and terminals on this computer '

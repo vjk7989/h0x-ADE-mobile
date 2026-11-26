@@ -112,6 +112,28 @@ class PanelMachinesController extends Notifier<List<PanelMachine>> {
     return true;
   });
 
+  /// Saves [m] with its secrets, and only after that succeeds drops [oldIds]
+  /// (an earlier pairing of the same computer) and their secrets. If the save
+  /// fails, the old pairings are untouched.
+  Future<void> replace(List<String> oldIds, PanelMachine m, PanelSecrets secrets) =>
+      _serial(() async {
+        final store = ref.read(secretStoreProvider);
+        final before = state;
+        try {
+          await store.write(_tokenKey(m.id), secrets.token);
+          await store.write(_deviceKeyKey(m.id), secrets.deviceKey);
+          state = [for (final o in state) if (!oldIds.contains(o.id)) o, m];
+          await _save();
+        } catch (_) {
+          state = before;
+          await _deleteSecrets(m.id).catchError((Object _) {});
+          rethrow;
+        }
+        for (final id in oldIds) {
+          await _deleteSecrets(id).catchError((Object _) {});
+        }
+      });
+
   Future<void> rename(String id, String name) async {
     final n = name.trim();
     if (n.isEmpty || n.length > 64) throw ArgumentError('Name must be 1 to 64 characters');

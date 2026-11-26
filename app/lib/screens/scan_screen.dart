@@ -128,6 +128,11 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
       ),
       builder: (ctx) => PanelPairSheet(
         address: Uri.parse(link.baseUrl).host,
+        port: Uri.parse(link.baseUrl).hasPort ? Uri.parse(link.baseUrl).port : null,
+        notTailscale: !Uri.parse(link.baseUrl).host.toLowerCase().endsWith('.ts.net'),
+        keyChanged: ref
+            .read(panelMachinesProvider)
+            .any((m) => m.baseUrl == link.baseUrl && m.fp != link.fp),
         fingerprint: link.fp,
         onPair: () => Navigator.pop(ctx, true),
         onCancel: () => Navigator.pop(ctx, false),
@@ -153,20 +158,27 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     final saved = ref.read(panelMachinesProvider);
     try {
       final p = await widget.pair(link, label: 'HyperOx phone');
-      // Scanning a computer that is already here replaces its old pairing.
-      for (final o in saved.where((m) => m.baseUrl == link.baseUrl)) {
-        await repo.remove(o.id);
+      // Scanning a computer that is already here replaces its old pairing,
+      // but only after the new one is saved.
+      try {
+        await repo.replace(
+          [for (final o in saved.where((m) => m.baseUrl == link.baseUrl)) o.id],
+          PanelMachine(
+            id: 'p${DateTime.now().microsecondsSinceEpoch}',
+            name: Uri.parse(link.baseUrl).host,
+            baseUrl: link.baseUrl,
+            fp: link.fp,
+            label: p.device,
+          ),
+          p.secrets,
+        );
+      } catch (_) {
+        _fail(
+          'Could not save the pairing',
+          'This phone could not store the pairing safely. Any earlier pairing was kept. Try again.',
+        );
+        return;
       }
-      await repo.add(
-        PanelMachine(
-          id: 'p${DateTime.now().microsecondsSinceEpoch}',
-          name: Uri.parse(link.baseUrl).host,
-          baseUrl: link.baseUrl,
-          fp: link.fp,
-          label: p.device,
-        ),
-        p.secrets,
-      );
       if (mounted) context.go('/machines');
     } on PanelFingerprintMismatch {
       _fail(

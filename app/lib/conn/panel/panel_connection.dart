@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:pointycastle/export.dart' show SHA256Digest;
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import '../../data/panel_machines_repo.dart';
@@ -12,6 +13,16 @@ import 'panel_link.dart';
 
 /// The server refuses anything larger than this, both ways (core bridge docs).
 const panelMaxFrame = 64 * 1024;
+
+/// The server hello is about 300 bytes; the core accepts at most 1 KB.
+const panelMaxHello = 1024;
+
+/// Lowercase hex SHA-256 of the UTF-8 text: what `approve` carries so core
+/// can refuse when the prompt is no longer the one the phone showed.
+String promptSha256(String prompt) => SHA256Digest()
+    .process(Uint8List.fromList(utf8.encode(prompt)))
+    .map((b) => b.toRadixString(16).padLeft(2, '0'))
+    .join();
 
 /// A text frame (the hello) or a binary frame (everything after it).
 abstract class PanelSocket {
@@ -85,6 +96,7 @@ class _Wire {
   void _onData(Object? data) {
     if (!_accepted) {
       if (data is! String) return _fail(const PanelE2eError('binary before hello'));
+      if (data.length > panelMaxHello) return _fail(const PanelE2eError('hello too large'));
       try {
         _chan.accept(data, _fp);
       } catch (e) {
@@ -182,6 +194,8 @@ Future<PanelPairing> pairWithPanel(
     await wire.close();
   }
 }
+
+const _promptChanged = 'The prompt changed — review it again';
 
 const _scanAgainText = 'This phone is no longer paired. Scan the QR again.';
 
@@ -421,6 +435,8 @@ class PanelMachineConnection implements MachineConnection {
         return RateLimited(d['retry_secs'] is int ? d['retry_secs'] as int : 0);
       case 'not_paired':
         return const NotPaired();
+      case 'prompt_changed':
+        return const ReplyFailed(_promptChanged);
       case 'failed':
         return ReplyFailed((d['message'] as String?) ?? 'failed');
       default:
@@ -485,6 +501,7 @@ class PanelMachineConnection implements MachineConnection {
   /// Approve or deny only what the person was shown (the same rule as the SSH
   /// path): the terminal must still be blocked on the same permission prompt.
   Future<Reply> _answer(String terminal, String cmd) async {
+    final approve = cmd == 'approve';
     final seen = _shown.remove(terminal);
     if (seen == null) return const ReplyFailed('review the prompt first');
     final List<Session> now;
@@ -500,7 +517,7 @@ class PanelMachineConnection implements MachineConnection {
       return ReplyFailed('refused: only a blocked permission can be approved or denied (this is $what)');
     }
     if (s.message != seen) return const ReplyFailed('the prompt changed, review it again');
-    return _cmd(cmd, {'terminal': terminal});
+    return _cmd(cmd, {'terminal': terminal, if (approve) 'prompt_sha256': promptSha256(seen)});
   }
 
   @override

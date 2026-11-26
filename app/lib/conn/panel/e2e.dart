@@ -14,6 +14,7 @@ const _c2s = 1;
 const _s2c = 2;
 const _pubLen = 65;
 const _nonceLen = 32;
+const _maxCounter = 1 << 62;
 
 final _params = ECDomainParameters('prime256v1');
 final _p = BigInt.parse(
@@ -227,7 +228,7 @@ class PanelChannel {
   Uint8List sealBytes(List<int> plain) {
     final key = _kSend;
     if (key == null) throw const PanelE2eError('not accepted');
-    if (_sendCtr == -1) throw const PanelE2eError('counter exhausted');
+    if (_sendCtr >= _maxCounter) throw const PanelE2eError('counter exhausted');
     final out = _gcm(true, key, _c2s, _sendCtr, Uint8List.fromList(plain));
     _sendCtr++;
     return out;
@@ -237,7 +238,7 @@ class PanelChannel {
   Uint8List openBytes(List<int> wire) {
     final key = _kRecv;
     if (key == null) throw const PanelE2eError('not accepted');
-    if (_recvCtr == -1) throw const PanelE2eError('counter exhausted');
+    if (_recvCtr >= _maxCounter) throw const PanelE2eError('counter exhausted');
     final out = _gcm(false, key, _s2c, _recvCtr, Uint8List.fromList(wire));
     _recvCtr++;
     return out;
