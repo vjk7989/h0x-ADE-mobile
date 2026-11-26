@@ -250,7 +250,7 @@ void main() {
       await c.start();
       await Future<void>.delayed(const Duration(milliseconds: 250));
       expect(panel.connects, before + 1);
-      expect(panel.conns.single.received.where((m) => m['name'] == 'ping'), isNotEmpty);
+      expect(panel.conns.skip(before).single.received.where((m) => m['name'] == 'ping'), isNotEmpty);
       await c.close();
     });
 

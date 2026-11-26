@@ -194,15 +194,18 @@ void main() {
     testWidgets('confirm pairs once, saves the computer and its secrets, and leaves', (tester) async {
       final cam = _Cam();
       final links = <PanelLink>[];
+      final labels = <String>[];
       final (c, _) = await _pump(tester, cam, pair: (l, {required label}) async {
         links.add(l);
-        expect(label, 'HyperOx phone');
+        labels.add(label);
         return _pairing();
       });
       await _scan(tester, cam, _link);
       cam.feed!(_link); // the camera sees it again while the sheet is open
       await tester.tap(find.text('Pair this phone'));
       await tester.pumpAndSettle();
+      expect(find.text('Could not reach the computer'), findsNothing);
+      expect(labels, ['HyperOx phone']);
       expect(links, hasLength(1));
       expect(links.single.baseUrl, 'https://pc.tail1234.ts.net:8377');
       final saved = c.read(panelMachinesProvider).single;
