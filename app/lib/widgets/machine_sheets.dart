@@ -260,3 +260,57 @@ class ApprovalSheet extends StatelessWidget {
     );
   }
 }
+
+/// The first time a computer is paired by QR: who it is, its key, and "Pair
+/// this phone". Nothing is sent or saved until the user agrees.
+class PanelPairSheet extends StatelessWidget {
+  const PanelPairSheet({
+    super.key,
+    required this.address,
+    required this.fingerprint,
+    required this.onPair,
+    required this.onCancel,
+  });
+
+  final String address;
+  final String fingerprint;
+  final VoidCallback onPair;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.hx.colors;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Semantics(
+              header: true,
+              child: Text('Pair with this computer?', style: HxType.titleSm),
+            ),
+            Text(address, style: HxType.mono.copyWith(color: c.muted)),
+            const SizedBox(height: 12),
+            Text(
+              'This phone will see your agents and terminals on this computer '
+              'and can answer them. Pair only with a computer you own.',
+              style: HxType.body,
+            ),
+            const SizedBox(height: 12),
+            FingerprintBox(fingerprint: fingerprint, caption: 'Computer key'),
+            const SizedBox(height: 20),
+            HxButton(
+              label: 'Pair this phone',
+              kind: HxButtonKind.primary,
+              onPressed: onPair,
+            ),
+            const SizedBox(height: 12),
+            HxButton(label: 'Cancel', onPressed: onCancel),
+          ],
+        ),
+      ),
+    );
+  }
+}

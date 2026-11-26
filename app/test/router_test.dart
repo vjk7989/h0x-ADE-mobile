@@ -45,6 +45,7 @@ void main() {
     test('sign-in and Add machine stay open without an account', () {
       expect(go('/sign-in'), isNull);
       expect(go('/machines/add'), isNull);
+      expect(go('/machines/scan'), isNull);
       expect(go('/settings/theme'), isNull);
     });
 

@@ -9,6 +9,7 @@ import '../widgets/hx_icon_compat.dart';
 import '../config.dart';
 import '../conn/machine_connection.dart';
 import '../conn/machine_directory.dart';
+import '../conn/panel/panel_connection.dart' show KeyChanged, ScanAgain;
 import '../data/machine_status.dart';
 import '../data/ssh_gateway.dart';
 import '../data/panel_machines_repo.dart';
@@ -16,6 +17,7 @@ import '../data/ssh_machines_repo.dart';
 import '../session_state.dart';
 import '../theme/themes.dart';
 import '../theme/type.dart';
+import '../state/connections.dart';
 import '../state/inbox.dart';
 import '../widgets/app_shell.dart';
 import '../widgets/hx.dart';
@@ -79,7 +81,8 @@ class _MachinesScreenState extends ConsumerState<MachinesScreen> {
       panel: ref.watch(panelMachinesProvider),
       status: ref.watch(machineStatusProvider),
     );
-    final account = [for (final e in entries) if (e.ssh == null) e];
+    final account = [for (final e in entries) if (e.ssh == null && e.panel == null) e];
+    final paired = [for (final e in entries) if (e.panel != null) e];
     final ssh = [for (final e in entries) if (e.ssh != null) e];
     final online = entries.where((e) => stateWord(e) == 'online').length;
     final wide = MediaQuery.sizeOf(context).width >= kRailBreakpoint;
@@ -155,6 +158,13 @@ class _MachinesScreenState extends ConsumerState<MachinesScreen> {
                             _Section(
                               label: 'ACCOUNT',
                               entries: account,
+                              selectedId: selectedId,
+                              onSelect: wide ? select : null,
+                            ),
+                          if (paired.isNotEmpty)
+                            _Section(
+                              label: 'PAIRED BY QR',
+                              entries: paired,
                               selectedId: selectedId,
                               onSelect: wide ? select : null,
                             ),
@@ -694,18 +704,36 @@ class _MachineRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final c = context.hx.colors;
-    final word = stateWord(entry);
+    final isPanel = entry.panel != null;
+    final live = isPanel ? ref.watch(panelStateProvider(entry.info.id)).value : null;
+    final keyChanged = live is KeyChanged;
+    final scanAgain = live is ScanAgain || keyChanged;
+    final word = !isPanel
+        ? stateWord(entry)
+        : keyChanged
+            ? 'key changed'
+            : scanAgain
+            ? 'scan again'
+            : live is Ready
+                ? 'online'
+                : live is Failed
+                    ? 'offline'
+                    : 'connecting';
     final wordColor = switch (word) {
       'online' => c.ok,
-      'blocked' => c.blocked,
+      'blocked' || 'scan again' || 'key changed' => c.blocked,
       _ => c.muted,
     };
     final isSsh = entry.ssh != null;
     final os = osLabel(entry.info.os).toLowerCase();
-    final meta = isSsh ? '$os · ${entry.address}' : os;
+    final meta = isSsh
+        ? '$os · ${entry.address}'
+        : isPanel
+            ? entry.address
+            : os;
     // From 1.5x text the row stacks: name, meta by line, tag, state.
     final stacked = MediaQuery.textScalerOf(context).scale(14) / 14 >= 1.5;
-    final tag = HxTag(isSsh ? 'ssh' : 'account', color: isSsh ? c.done : c.accent);
+    final tag = HxTag(isSsh ? 'ssh' : isPanel ? 'qr' : 'account', color: isSsh ? c.done : c.accent);
     final state = Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -793,7 +821,7 @@ class _MachineRow extends ConsumerWidget {
         Semantics(
           button: true,
           selected: selected,
-          label: rowLabel(entry),
+          label: isPanel ? '${entry.info.name}, QR, $word' : rowLabel(entry),
           excludeSemantics: true,
           onTap: tap,
           onLongPress: () => _actions(context, ref),
@@ -813,6 +841,15 @@ class _MachineRow extends ConsumerWidget {
             ),
           ),
         ),
+        if (scanAgain)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: _ScanAgainStrip(
+              name: entry.info.name,
+              text: keyChanged ? 'Security key changed' : 'No longer paired',
+              onScan: () => context.push('/machines/scan'),
+            ),
+          ),
         if (entry.status?.hostKeyChanged ?? false)
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -866,6 +903,13 @@ class _MachineRow extends ConsumerWidget {
               label: 'Open sessions',
               onTap: () => Navigator.pop(ctx, 'open'),
             ),
+            if (entry.panel != null)
+              _SheetItem(
+                icon: Icons.delete_outline,
+                label: 'Remove from this phone',
+                color: c.blocked,
+                onTap: () => Navigator.pop(ctx, 'removepanel'),
+              ),
             if (m != null) ...[
               _SheetItem(
                 icon: Icons.edit_outlined,
@@ -906,6 +950,8 @@ class _MachineRow extends ConsumerWidget {
         await _showKey(context, ref, m!);
       case 'remove':
         await _remove(context, ref, m!);
+      case 'removepanel':
+        await _removePanel(context, ref, entry.panel!);
     }
   }
 
@@ -967,6 +1013,31 @@ class _MachineRow extends ConsumerWidget {
     );
   }
 
+  Future<void> _removePanel(BuildContext context, WidgetRef ref, PanelMachine m) async {
+    final repo = ref.read(panelMachinesProvider.notifier);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Remove ${m.name}?'),
+        content: const Text(
+          'It is removed from this phone only. To end the pairing on the '
+          'computer, unpair this phone there too.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (ok ?? false) await repo.remove(m.id);
+  }
+
   Future<void> _remove(BuildContext context, WidgetRef ref, SshMachine m) async {
     // Removing the machine disposes this row and its ref: take both first.
     final repo = ref.read(sshMachinesProvider.notifier);
@@ -994,6 +1065,49 @@ class _MachineRow extends ConsumerWidget {
       await repo.remove(m.id);
       status.forget(m.id);
     }
+  }
+}
+
+class _ScanAgainStrip extends StatelessWidget {
+  const _ScanAgainStrip({required this.name, required this.text, required this.onScan});
+
+  final String name;
+  final String text;
+  final VoidCallback onScan;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.hx.colors;
+    return Container(
+      padding: const EdgeInsets.only(left: 12),
+      decoration: BoxDecoration(
+        color: c.blocked.withAlpha(18),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: c.blocked),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.qr_code_scanner, size: 20, color: c.blocked),
+          const SizedBox(width: 8),
+          Expanded(child: Text(text, style: HxType.bodySm)),
+          Semantics(
+            button: true,
+            label: 'Scan the QR again for $name',
+            excludeSemantics: true,
+            onTap: onScan,
+            child: InkWell(
+              onTap: onScan,
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 48, minWidth: 72),
+                alignment: Alignment.center,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text('Scan again', style: HxType.bodyLg),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

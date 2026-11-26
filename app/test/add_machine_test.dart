@@ -557,6 +557,38 @@ void main() {
     });
   });
 
+  testWidgets('Scan QR from computer opens the scan screen', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final c = ProviderContainer(
+      overrides: [
+        sharedPrefsProvider.overrideWithValue(prefs),
+        sshGatewayProvider.overrideWithValue(FakeGateway()),
+      ],
+    );
+    addTearDown(c.dispose);
+    final router = GoRouter(
+      initialLocation: '/machines/add',
+      routes: [
+        GoRoute(path: '/machines/add', builder: (_, _) => const AddMachineScreen()),
+        GoRoute(path: '/machines/scan', builder: (_, _) => const Text('SCAN')),
+      ],
+    );
+    tester.view.physicalSize = const Size(411, 919);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: c,
+        child: MaterialApp.router(theme: themeData(themeById('paper')), routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Scan QR from computer'));
+    await tester.pumpAndSettle();
+    expect(find.text('SCAN'), findsOneWidget);
+  });
+
   group('AddMachineScreen goldens and semantics', () {
     final overrides = <Override>[
       sshGatewayProvider.overrideWithValue(FakeGateway()),

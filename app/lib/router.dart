@@ -7,6 +7,7 @@ import 'screens/add_machine_screen.dart';
 import 'screens/agent_screen.dart';
 import 'screens/inbox_screen.dart';
 import 'screens/machines_screen.dart';
+import 'screens/scan_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/sign_in_screen.dart';
 import 'screens/theme_picker_screen.dart';
@@ -39,7 +40,7 @@ String? redirectFor({
   }
   if (location == '/') return known ? '/inbox' : '/sign-in';
   if (known) return location == '/sign-in' ? '/inbox' : null;
-  const open = {'/sign-in', '/machines/add', '/settings/theme'};
+  const open = {'/sign-in', '/machines/add', '/machines/scan', '/settings/theme'};
   return open.contains(location) ? null : '/sign-in';
 }
 
@@ -64,6 +65,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/machines/add',
         pageBuilder: (_, state) =>
             HxSharedAxisPage(key: state.pageKey, child: const AddMachineScreen()),
+      ),
+      GoRoute(
+        path: '/machines/scan',
+        pageBuilder: (_, state) =>
+            HxSharedAxisPage(key: state.pageKey, child: const ScanScreen()),
       ),
       GoRoute(
         path: '/settings/theme',

@@ -392,7 +392,8 @@ class SshMachineConnection implements MachineConnection {
         return ReplyFailed('refused: only a blocked permission can be approved or denied (this is $what)');
       }
       final seen = _shown.remove(terminal);
-      if (seen != null && seen != s.message) {
+      if (seen == null) return const ReplyFailed('review the prompt first');
+      if (seen != s.message) {
         return const ReplyFailed('the prompt changed, review it again');
       }
     } on CoreRpcException catch (e) {

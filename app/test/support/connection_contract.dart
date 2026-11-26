@@ -32,8 +32,11 @@ void connectionContract(String name, Future<MachineConnection> Function() make) 
     });
 
     test('approve and deny work only on a blocked permission', () async {
+      await c.sessions();
       expect(await c.approve('t2'), isA<Done>());
+      await c.sessions();
       expect(await c.deny('t2'), isA<Done>());
+      await c.sessions();
       expect(await c.approve('t3'), isA<ReplyFailed>(), reason: 'a question');
       expect(await c.approve('t1'), isA<ReplyFailed>(), reason: 'working');
     });
@@ -48,30 +51,34 @@ void connectionContract(String name, Future<MachineConnection> Function() make) 
       expect(await c.confirm('bogus'), isA<ReplyFailed>());
     });
 
-    test('size is positive and view opens with an initial size', () async {
-      final size = await c.size('t1');
-      expect(size.cols, greaterThan(0));
-      expect(size.rows, greaterThan(0));
-      final v = await c.view('t1');
-      expect(v.initial.cols, greaterThan(0));
-      await v.close();
-    });
+    if (terminalView) {
+      test('size is positive and view opens with an initial size', () async {
+        final size = await c.size('t1');
+        expect(size.cols, greaterThan(0));
+        expect(size.rows, greaterThan(0));
+        final v = await c.view('t1');
+        expect(v.initial.cols, greaterThan(0));
+        await v.close();
+      });
 
-    test('size and view of an unknown terminal fail', () async {
-      await expectLater(c.size('nope'), throwsA(anything));
-      await expectLater(c.view('nope'), throwsA(anything));
-    });
+      test('size and view of an unknown terminal fail', () async {
+        await expectLater(c.size('nope'), throwsA(anything));
+        await expectLater(c.view('nope'), throwsA(anything));
+      });
+    }
 
-    test('files: missing reads null, a write reads back, app home is absolute', () async {
-      final home = await c.appHome();
-      expect(home, isNotEmpty);
-      final path = '$home/todo/contract.md';
-      expect(await c.readFile(path), isNull);
-      await c.writeFile(path, '# T\n- [ ] a\n');
-      expect(await c.readFile(path), '# T\n- [ ] a\n');
-      await c.writeFile(path, '');
-      expect(await c.readFile(path), '');
-    });
+    if (files) {
+      test('files: missing reads null, a write reads back, app home is absolute', () async {
+        final home = await c.appHome();
+        expect(home, isNotEmpty);
+        final path = '$home/todo/contract.md';
+        expect(await c.readFile(path), isNull);
+        await c.writeFile(path, '# T\n- [ ] a\n');
+        expect(await c.readFile(path), '# T\n- [ ] a\n');
+        await c.writeFile(path, '');
+        expect(await c.readFile(path), '');
+      });
+    }
 
     test('state emits ready or has been ready', () async {
       // Implementations are ready when make() returns.
