@@ -30,7 +30,7 @@ jobs:
           channel: stable
           flutter-version: 3.50.0
           cache: true
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - name: Analyze
         run: flutter analyze --no-fatal-infos
       - name: Test
@@ -81,7 +81,7 @@ jobs:
           channel: stable
           flutter-version: 3.50.0
           cache: true
-      - run: flutter pub get
+      - run: flutter pub get --enforce-lockfile
       - name: Decode keystore
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
