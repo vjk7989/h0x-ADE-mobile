@@ -126,7 +126,8 @@ class _Wire {
   Future<void> close() async {
     await _sub?.cancel();
     _sub = null;
-    if (!_in.isClosed) await _in.close();
+    // not awaited: with no listener a controller's close never completes
+    if (!_in.isClosed) unawaited(_in.close());
     try {
       await _socket.close();
     } catch (_) {}

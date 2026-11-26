@@ -36,7 +36,7 @@ void main() {
       expect(find.text('PAIRED BY QR'), findsOneWidget);
       expect(find.text('pc.tail1234.ts.net'), findsOneWidget);
       expect(find.text('online'), findsOneWidget);
-      expect(find.text('qr'), findsOneWidget);
+      expect(find.text('[qr]'), findsOneWidget);
       expect(find.text('Scan again'), findsNothing);
     });
 

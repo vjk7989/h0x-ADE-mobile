@@ -150,7 +150,7 @@ void main() {
         final cam = _Cam();
         await _pump(tester, cam);
         await _scan(tester, cam, raw);
-        expect(find.text('Pair with this computer?'), findsOneWidget, reason: raw.substring(0, 40));
+        expect(find.text('Pair with this computer?'), findsOneWidget, reason: raw.substring(0, raw.length < 40 ? raw.length : 40));
         await tester.tap(find.text('Cancel'));
         await tester.pumpAndSettle();
       }

@@ -148,10 +148,11 @@ void main() {
       final panel = FakePanel();
       final secrets = await _pair(panel);
       panel.revoked = true;
+      final before = panel.connects; // the pairing above used one
       final c = _conn(panel, secrets);
       expect(await c.start(), isA<ScanAgain>());
       await Future<void>.delayed(const Duration(milliseconds: 30));
-      expect(panel.connects, 1, reason: 'no retry loop');
+      expect(panel.connects, before + 1, reason: 'no retry loop');
       await c.close();
     });
 
@@ -245,9 +246,10 @@ void main() {
         pingEvery: const Duration(milliseconds: 20),
         idleLimit: const Duration(milliseconds: 80),
       );
+      final before = panel.connects; // the pairing above used one
       await c.start();
       await Future<void>.delayed(const Duration(milliseconds: 250));
-      expect(panel.connects, 1);
+      expect(panel.connects, before + 1);
       expect(panel.conns.single.received.where((m) => m['name'] == 'ping'), isNotEmpty);
       await c.close();
     });

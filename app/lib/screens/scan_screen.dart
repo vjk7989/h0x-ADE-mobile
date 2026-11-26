@@ -45,6 +45,9 @@ import '../widgets/machine_sheets.dart';
   }
 }
 
+/// A long error text cut to what fits a banner.
+String _short(String t) => t.length > 120 ? '${t.substring(0, 120)}…' : t;
+
 typedef PanelPairer = Future<PanelPairing> Function(PanelLink link, {required String label});
 
 /// Draws the camera and reports every code it reads; [onDenied] says the
@@ -174,7 +177,7 @@ class _ScanScreenState extends ConsumerState<ScanScreen> {
     } on PanelPairException catch (e) {
       _fail('The computer refused to pair', '${e.message}. Show a fresh QR on the computer.');
     } catch (e) {
-      _fail('Could not reach the computer', 'Check that it is on, awake and on your tailnet. ($e)');
+      _fail('Could not reach the computer', 'Check that it is on, awake and on your tailnet. (${_short('$e')})');
     }
   }
 
